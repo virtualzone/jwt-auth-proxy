@@ -1,0 +1,21 @@
+image: virtualzone/jwt-auth-proxy:TAGNAME
+manifests:
+  - image: virtualzone/jwt-auth-proxy:TAGNAME-amd64
+    platform:
+      architecture: amd64
+      os: linux
+  - image: virtualzone/jwt-auth-proxy:TAGNAME-arm32v6
+    platform:
+      architecture: arm
+      os: linux
+      variant: v6
+  - image: virtualzone/jwt-auth-proxy:TAGNAME-arm32v7
+    platform:
+      architecture: arm
+      os: linux
+      variant: v7
+  - image: virtualzone/jwt-auth-proxy:TAGNAME-arm64v8
+    platform:
+      architecture: arm64
+      os: linux
+      variant: v8
