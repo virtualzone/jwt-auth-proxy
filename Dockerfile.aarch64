@@ -13,6 +13,16 @@ RUN go get -d -v ./...
 RUN CGO_ENABLED=0 go build -o main .
 
 FROM arm64v8/alpine:3.11
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+LABEL org.label-schema.build-date=$BUILD_DATE \
+        org.label-schema.name="JWT Auth Proxy" \
+        org.label-schema.description="A lightweight authentication proxy written in Go designed for use in Docker/Kubernetes environments." \
+        org.label-schema.vcs-ref=$VCS_REF \
+        org.label-schema.vcs-url="https://github.com/virtualzone/jwt-auth-proxy" \
+        org.label-schema.version=$VERSION \
+        org.label-schema.schema-version="1.0"
 COPY --from=qemu /tmp/qemu-aarch64-static /usr/bin/
 RUN adduser -S -D -H -h /app appuser
 USER appuser
