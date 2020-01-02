@@ -1,0 +1,22 @@
+FROM alpine:3.11 AS qemu
+RUN apk --update add --no-cache curl
+RUN cd /tmp && \
+    curl -L https://github.com/balena-io/qemu/releases/download/v3.0.0%2Bresin/qemu-3.0.0+resin-aarch64.tar.gz | tar zxvf - -C . && mv qemu-3.0.0+resin-aarch64/qemu-aarch64-static .
+
+FROM arm64v8/golang:1.13-alpine AS builder
+COPY --from=qemu /tmp/qemu-aarch64-static /usr/bin/
+RUN apk --update add --no-cache git
+RUN export GOBIN=$HOME/work/bin
+WORKDIR /go/src/app
+ADD src/ .
+RUN go get -d -v ./...
+RUN CGO_ENABLED=0 go build -o main .
+
+FROM arm64v8/alpine:3.11
+COPY --from=qemu /tmp/qemu-aarch64-static /usr/bin/
+RUN adduser -S -D -H -h /app appuser
+USER appuser
+COPY --from=builder /go/src/app/main /app/
+ADD res/ /app/res/
+WORKDIR /app
+CMD ["./main"]
