@@ -1,7 +1,7 @@
 # JWT Auth Proxy
 This JWT Auth Proxy is a lightweight authentication proxy written in Go designed for use in Docker/Kubernetes environments.
 
-![JWT Auth Proxy](raw/master/diagram.png)
+![JWT Auth Proxy](https://raw.githubusercontent.com/virtualzone/jwt-auth-proxy/master/diagram.png)
 
 JWT Auth Proxy sits between your frontend and your application's backend, handles authentication, and proxies authenticated requests to your backend. It offers REST APIs and logic for signup (incl. double-opt-in), password reset ("forgot my password") and verified email address change. This way, your application's backend can focus on the actual business logic, while relying on secure authentication having been performed before.
 
@@ -35,7 +35,7 @@ JWT Auth Proxy uses short-lived JWT access tokens (HMAC-signing with SHA-512) an
 ## Setup
 Prerequisites: A MongoDB instance (tested with MongoDB v4).
 
-Please refer to the [docker-compose.yml](raw/master/docker-compose.yml) example on how to use the pre-build Docker image.
+Please refer to the [docker-compose.yml](https://github.com/virtualzone/jwt-auth-proxy/blob/master/docker-compose.yml) example on how to use the pre-build Docker image.
 
 The server requires a key and a certificate for providing mTLS encryption for the backend REST API.
 
