@@ -6,6 +6,7 @@ chmod +x manifest-tool
 ./manifest-tool push from-spec multi-arch-manifest.yaml
 
 # Apply to concrete version
-sed "s/TAGNAME/${DOCKER_TAG}/g" multi-arch-manifest.template.yaml > multi-arch-manifest-tag.yaml
+TAG_SPLIT="$(cut -d'-' -f1 <<<"$DOCKER_TAG")"
+sed "s/TAGNAME/${TAG_SPLIT}/g" multi-arch-manifest.template.yaml > multi-arch-manifest-tag.yaml
 ./manifest-tool push from-spec multi-arch-manifest-tag.yaml
 rm -f multi-arch-manifest-tag.yaml
