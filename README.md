@@ -204,6 +204,7 @@ When your application's backend receives an HTTP request proxied through the JWT
   * 201: No content (successful, email sent to new email address - confirmation required before new address gets activated)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
+  * 409: Conflict (email address already exists)
 
 ### Reset password
 * Use case: User forgot his password and wants to reset it.
@@ -218,6 +219,22 @@ When your application's backend receives an HTTP request proxied through the JWT
 * HTTP Response Status Codes:
   * 201: No content (successful, email sent user - confirmation required before new password is generated)
   * 400: Bad request (invalid JSON payload)
+
+### Delete account
+* Use case: User wants to delete his own account.
+* URL: /auth/delete
+* Method: POST
+* Request Header: ```Authorization: Bearer <Access Token>```
+* JSON Payload: 
+  ```
+  {
+      "password": "<user's password>"
+  }
+  ```
+* HTTP Response Status Codes:
+  * 201: No content (successful)
+  * 400: Bad request (invalid JSON payload)
+  * 401: Unauthorized (authorization failed due to various reasons)
 
 ## Applicaiton-/Backend-facing REST API
 ### Create user
@@ -237,6 +254,7 @@ When your application's backend receives an HTTP request proxied through the JWT
 * HTTP Response Status Codes:
   * 201: Created (user successfully created, User ID in response header 'X-Object-ID')
   * 400: Bad request (invalid JSON payload)
+  * 409: Conflict (email address already exists)
 
 ### Get user
 * Use case: Get a user object.
@@ -278,6 +296,7 @@ When your application's backend receives an HTTP request proxied through the JWT
   * 204: No content (successful)
   * 400: Bad request (invalid JSON payload)
   * 404: Not found (invalid User ID)
+  * 409: Conflict (email address already exists)
 
 ### Set password
 * Use case: Set a user's password.
@@ -386,6 +405,7 @@ ALLOW_SIGNUP | 1 | Whether to allow (= 1) signup requests at the user-facing HTT
 ALLOW_CHANGE_PASSWORD | 1 | Whether to allow (= 1) change password requests at the user-facing HTTP server.
 ALLOW_CHANGE_EMAIL | 1 | Whether to allow (= 1) change email address requests at the user-facing HTTP server.
 ALLOW_FORGOT_PASSWORD | 1 | Whether to allow (= 1) password reset requests at the user-facing HTTP server.
+ALLOW_DELETE_ACCOUNT | 1 | Whether to allow (= 1) "delete my account" requests at the user-facing HTTP server.
 PROXY_TARGET | http://127.0.0.1:80 | The target server hosting your application backend.
 PROXY_WHITELIST | '' | Whitelisted URL prefixes at the target server not requiring a valid authentication. Separate prefixes by colons (':').
 ACCESS_TOKEN_LIFETIME | 5 | The access token lifetime in minutes.

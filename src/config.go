@@ -33,6 +33,7 @@ type Config struct {
 	AllowChangePassword   bool
 	AllowChangeEmail      bool
 	AllowForgotPassword   bool
+	AllowDeleteAccount    bool
 	ProxyTarget           *url.URL
 	ProxyWhitelist        []string
 	AccessTokenLifetime   time.Duration
@@ -86,6 +87,7 @@ func (c *Config) ReadConfig() {
 	c.AllowChangePassword = (c._GetEnv("ALLOW_CHANGE_PASSWORD", "1") == "1")
 	c.AllowChangeEmail = (c._GetEnv("ALLOW_CHANGE_EMAIL", "1") == "1")
 	c.AllowForgotPassword = (c._GetEnv("ALLOW_FORGOT_PASSWORD", "1") == "1")
+	c.AllowDeleteAccount = (c._GetEnv("ALLOW_DELETE_ACCOUNT", "1") == "1")
 	if proxyTaget, err := url.Parse(c._GetEnv("PROXY_TARGET", "http://127.0.0.1:80")); err != nil {
 		log.Fatal(err)
 	} else {

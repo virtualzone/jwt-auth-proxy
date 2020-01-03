@@ -32,7 +32,9 @@ func (router *AuthRouter) setupRoutes(s *mux.Router) {
 	if GetConfig().AllowForgotPassword {
 		s.HandleFunc("/initpwreset", router.InitForgotPassword).Methods("POST")
 	}
-	// TODO Add delete account
+	if GetConfig().AllowDeleteAccount {
+		s.HandleFunc("/delete", router.DeleteAccount).Methods("POST")
+	}
 	s.HandleFunc("/confirm/{id}", router.Confirm).Methods("POST")
 }
 
@@ -260,6 +262,29 @@ func (router *AuthRouter) InitForgotPassword(w http.ResponseWriter, r *http.Requ
 	SendUpdated(w)
 }
 
+// DeleteAccount handles /delete requests
+func (router *AuthRouter) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	var data DeleteAccountRequest
+	if UnmarshalValidateBody(r, &data) != nil {
+		log.Println("Invalid delete account attempt: failed unmarshalling request")
+		SendBadRequest(w)
+		return
+	}
+	user := GetUserRepository().GetOne(GetUserIDFromContext(r))
+	if user == nil {
+		log.Println("Invalid delete account attempt: invalid UserID", GetUserIDFromContext(r))
+		SendUnauthorized(w)
+		return
+	}
+	if !GetUserRepository().CheckPassword(user.HashedPassword, data.Password) {
+		log.Println("Invalid delete account attempt: incorrect password for UserID", GetUserIDFromContext(r))
+		SendUnauthorized(w)
+		return
+	}
+	GetUserRepository().Delete(user)
+	SendUpdated(w)
+}
+
 // Confirm handles /confirm requests
 func (router *AuthRouter) Confirm(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -417,5 +442,10 @@ type ChangePasswordRequest struct {
 // SignupRequest holds the POST payload for signup requests
 type SignupRequest struct {
 	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8,max=32"`
+}
+
+// DeleteAccountRequest holds the POST payload for account delete requests
+type DeleteAccountRequest struct {
 	Password string `json:"password" validate:"required,min=8,max=32"`
 }

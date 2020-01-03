@@ -127,6 +127,34 @@ func TestAuthChangeEmail(t *testing.T) {
 	}
 }
 
+func TestDeleteAccount(t *testing.T) {
+	clearTestDB()
+	loginResponse := createLoginTestUser()
+
+	payload := "{\"password\": \"12345678\"}"
+	req := newHTTPRequest("POST", "/auth/delete", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNoContent, res.Code)
+
+	if GetUserRepository().GetByEmail("foo@bar.com") != nil {
+		t.Error("Expected user to not exist anymore")
+	}
+}
+
+func TestDeleteAccountInvalidPassword(t *testing.T) {
+	clearTestDB()
+	loginResponse := createLoginTestUser()
+
+	payload := "{\"password\": \"1234567x\"}"
+	req := newHTTPRequest("POST", "/auth/delete", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
+
+	if GetUserRepository().GetByEmail("foo@bar.com") == nil {
+		t.Error("Expected user to still exist")
+	}
+}
+
 func TestAuthChangeEmailAlreadyExists(t *testing.T) {
 	clearTestDB()
 	user2 := &User{
