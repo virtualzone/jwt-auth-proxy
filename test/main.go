@@ -6,7 +6,11 @@ import (
 )
 
 func main() {
-	http.HandleFunc("/foo/bar", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/echo", func(w http.ResponseWriter, r *http.Request) {
+		url := r.URL.RequestURI()
+		w.Write([]byte(url))
+	})
+	http.HandleFunc("/printheaders", func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL.RequestURI()
 		log.Println("Incoming request for", url)
 		for k, v := range r.Header {
