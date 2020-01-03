@@ -33,6 +33,14 @@ func (router *UserRouter) Create(w http.ResponseWriter, r *http.Request) {
 		SendBadRequest(w)
 		return
 	}
+	if GetUserRepository().GetByEmail(data.Email) != nil {
+		SendAleadyExists(w)
+		return
+	}
+	if len(GetPendingActionRepository().GetByPayload(data.Email)) != 0 {
+		SendAleadyExists(w)
+		return
+	}
 	user := &User{
 		Email:          data.Email,
 		HashedPassword: GetUserRepository().GetHashedPassword(data.Password),
@@ -80,6 +88,14 @@ func (router *UserRouter) setEmail(w http.ResponseWriter, r *http.Request) {
 	var data SetEmailRequest
 	if UnmarshalValidateBody(r, &data) != nil {
 		SendBadRequest(w)
+		return
+	}
+	if GetUserRepository().GetByEmail(data.Email) != nil {
+		SendAleadyExists(w)
+		return
+	}
+	if len(GetPendingActionRepository().GetByPayload(data.Email)) != 0 {
+		SendAleadyExists(w)
 		return
 	}
 	user.Email = data.Email

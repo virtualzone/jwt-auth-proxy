@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-func TestSignup(t *testing.T) {
+func TestAuthSignup(t *testing.T) {
 	clearTestDB()
 
 	// Send Signup request and check response
@@ -41,6 +45,56 @@ func TestSignup(t *testing.T) {
 	checkTestResponseCode(t, http.StatusOK, res.Code)
 }
 
+func TestAuthSignupConflictingPendingChange(t *testing.T) {
+	clearTestDB()
+	pa := PendingAction{
+		ActionType: PendingActionTypeChangeEmail,
+		CreateDate: time.Now(),
+		ExpiryDate: time.Now().Add(time.Duration(time.Minute) * GetConfig().PendingActionLifetime),
+		UserID:     primitive.NewObjectID(),
+		Payload:    "foo@bar.com",
+		Token:      GetPendingActionRepository().FindUnusedToken(),
+	}
+	GetPendingActionRepository().Create(&pa)
+
+	payload := `{"email": "foo@bar.com", "password": "12345678"}`
+	req, _ := http.NewRequest("POST", "/auth/signup", bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
+}
+
+func TestSignupShortPassword(t *testing.T) {
+	clearTestDB()
+
+	payload := `{"email": "foo@bar.com", "password": "1234567"}`
+	req, _ := http.NewRequest("POST", "/auth/signup", bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
+}
+
+func TestSignupInvalidEmail(t *testing.T) {
+	clearTestDB()
+
+	payload := `{"email": "foobar.com", "password": "12345678"}`
+	req, _ := http.NewRequest("POST", "/auth/signup", bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
+}
+
+func TestSignupTwice(t *testing.T) {
+	clearTestDB()
+
+	payload := `{"email": "foo@bar.com", "password": "12345678"}`
+	req, _ := http.NewRequest("POST", "/auth/signup", bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusCreated, res.Code)
+
+	payload = `{"email": "foo@bar.com", "password": "87654321"}`
+	req, _ = http.NewRequest("POST", "/auth/signup", bytes.NewBufferString(payload))
+	res = executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
+}
+
 func TestAuthChangeEmail(t *testing.T) {
 	clearTestDB()
 	loginResponse := createLoginTestUser()
@@ -71,6 +125,41 @@ func TestAuthChangeEmail(t *testing.T) {
 	if GetUserRepository().GetByEmail("foo2@bar.com") == nil {
 		t.Error("Expected user to have new address")
 	}
+}
+
+func TestAuthChangeEmailAlreadyExists(t *testing.T) {
+	clearTestDB()
+	user2 := &User{
+		Email: "foo2@bar.com",
+	}
+	GetUserRepository().Create(user2)
+	loginResponse := createLoginTestUser()
+
+	// Init email change
+	payload := "{\"email\": \"foo2@bar.com\", \"password\": \"12345678\"}"
+	req := newHTTPRequest("POST", "/auth/changeemail", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
+}
+
+func TestAuthChangeEmailConflictingPendingChange(t *testing.T) {
+	clearTestDB()
+	pa := PendingAction{
+		ActionType: PendingActionTypeChangeEmail,
+		CreateDate: time.Now(),
+		ExpiryDate: time.Now().Add(time.Duration(time.Minute) * GetConfig().PendingActionLifetime),
+		UserID:     primitive.NewObjectID(),
+		Payload:    "foo2@bar.com",
+		Token:      GetPendingActionRepository().FindUnusedToken(),
+	}
+	GetPendingActionRepository().Create(&pa)
+	loginResponse := createLoginTestUser()
+
+	// Init email change
+	payload := "{\"email\": \"foo2@bar.com\", \"password\": \"12345678\"}"
+	req := newHTTPRequest("POST", "/auth/changeemail", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
 }
 
 func TestForgotPassword(t *testing.T) {
@@ -278,6 +367,34 @@ func TestPing(t *testing.T) {
 	req := newHTTPRequest("GET", "/auth/ping", loginResponse.AccessToken, nil)
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusNoContent, res.Code)
+}
+
+func TestPingManipulatedPayload(t *testing.T) {
+	clearTestDB()
+	loginResponse := createLoginTestUser()
+
+	split := strings.Split(loginResponse.AccessToken, ".")
+	payload, _ := base64.RawURLEncoding.DecodeString(string(split[1]))
+	payload2 := strings.ReplaceAll(string(payload), "foo@bar.com", "bar@bar.com")
+	accessToken2 := split[0] + "." + base64.RawURLEncoding.EncodeToString([]byte(payload2)) + "." + split[2]
+
+	req := newHTTPRequest("GET", "/auth/ping", accessToken2, nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
+}
+
+func TestPingManipulatedHeader(t *testing.T) {
+	clearTestDB()
+	loginResponse := createLoginTestUser()
+
+	split := strings.Split(loginResponse.AccessToken, ".")
+	header, _ := base64.RawURLEncoding.DecodeString(string(split[0]))
+	header2 := strings.ReplaceAll(string(header), "HS512", "HS256")
+	accessToken2 := base64.RawURLEncoding.EncodeToString([]byte(header2)) + split[1] + "." + split[2]
+
+	req := newHTTPRequest("GET", "/auth/ping", accessToken2, nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
 }
 
 func TestWithInvalidAuthHeader(t *testing.T) {

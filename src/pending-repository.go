@@ -77,6 +77,27 @@ func (r *PendingActionRepository) GetByToken(token string) *PendingAction {
 	return &pendingAction
 }
 
+func (r *PendingActionRepository) GetByPayload(payload string) []*PendingAction {
+	var results []*PendingAction
+	cur, err := r.GetCollection().Find(context.TODO(), bson.M{
+		"payload":    payload,
+		"expiryDate": bson.M{"$gte": time.Now()},
+	})
+	if err != nil {
+		return results
+	}
+	for cur.Next(context.TODO()) {
+		var pendingAction PendingAction
+		err := cur.Decode(&pendingAction)
+		if err != nil {
+			return results
+		}
+		results = append(results, &pendingAction)
+	}
+	cur.Close(context.TODO())
+	return results
+}
+
 func (r *PendingActionRepository) Delete(u *PendingAction) {
 	_, err := r.GetCollection().DeleteOne(context.TODO(), bson.M{"_id": u.ID})
 	if err != nil {

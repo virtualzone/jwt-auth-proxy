@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -47,6 +49,56 @@ func TestCreateUser(t *testing.T) {
 		t.Error("Expected user to be confirmed")
 	}
 	checkTestString(t, "blue", data.Data.Color)
+}
+
+func TestCreateUserTwice(t *testing.T) {
+	clearTestDB()
+
+	payload := `{"email": "foo@bar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	req, _ := http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusCreated, res.Code)
+
+	payload = `{"email": "foo@bar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	req, _ = http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
+	res = executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
+}
+
+func TestCreateUserInvalidEmail(t *testing.T) {
+	clearTestDB()
+
+	payload := `{"email": "foobar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	req, _ := http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
+}
+
+func TestCreateUserShortPassword(t *testing.T) {
+	clearTestDB()
+
+	payload := `{"email": "foo@bar.com", "password": "1234567", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	req, _ := http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
+}
+
+func TestCreateUserConflictingPendingChange(t *testing.T) {
+	clearTestDB()
+	pa := PendingAction{
+		ActionType: PendingActionTypeChangeEmail,
+		CreateDate: time.Now(),
+		ExpiryDate: time.Now().Add(time.Duration(time.Minute) * GetConfig().PendingActionLifetime),
+		UserID:     primitive.NewObjectID(),
+		Payload:    "foo@bar.com",
+		Token:      GetPendingActionRepository().FindUnusedToken(),
+	}
+	GetPendingActionRepository().Create(&pa)
+
+	payload := `{"email": "foo@bar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	req, _ := http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
 }
 
 func TestGetSimpleUser(t *testing.T) {
@@ -125,6 +177,16 @@ func TestSetPassword(t *testing.T) {
 	checkTestResponseCode(t, http.StatusOK, res.Code)
 }
 
+func TestSetPasswordShort(t *testing.T) {
+	clearTestDB()
+	user := createTestUser(true)
+
+	payload := `{"password": "x1x2x3"}`
+	req, _ := http.NewRequest("PUT", "/users/"+user.ID.Hex()+"/password", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
+}
+
 func TestChangeEmail(t *testing.T) {
 	clearTestDB()
 	user := createTestUser(true)
@@ -143,6 +205,49 @@ func TestChangeEmail(t *testing.T) {
 	req, _ = http.NewRequest("POST", "/auth/login", bytes.NewBufferString(payload))
 	res = executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusOK, res.Code)
+}
+
+func TestChangeEmailConflictingChange(t *testing.T) {
+	clearTestDB()
+	user := createTestUser(true)
+	pa := PendingAction{
+		ActionType: PendingActionTypeChangeEmail,
+		CreateDate: time.Now(),
+		ExpiryDate: time.Now().Add(time.Duration(time.Minute) * GetConfig().PendingActionLifetime),
+		UserID:     primitive.NewObjectID(),
+		Payload:    "foo2@bar.com",
+		Token:      GetPendingActionRepository().FindUnusedToken(),
+	}
+	GetPendingActionRepository().Create(&pa)
+
+	payload := `{"email": "foo2@bar.com"}`
+	req, _ := http.NewRequest("PUT", "/users/"+user.ID.Hex()+"/email", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
+}
+
+func TestChangeEmailAlreadyExists(t *testing.T) {
+	clearTestDB()
+	user := createTestUser(true)
+	user2 := &User{
+		Email: "foo2@bar.com",
+	}
+	GetUserRepository().Create(user2)
+
+	payload := `{"email": "foo2@bar.com"}`
+	req, _ := http.NewRequest("PUT", "/users/"+user.ID.Hex()+"/email", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusConflict, res.Code)
+}
+
+func TestChangeEmailInvalidAddress(t *testing.T) {
+	clearTestDB()
+	user := createTestUser(true)
+
+	payload := `{"email": "foobar.com"}`
+	req, _ := http.NewRequest("PUT", "/users/"+user.ID.Hex()+"/email", bytes.NewBufferString(payload))
+	res := executeBackendTestRequest(req)
+	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
 }
 
 func TestDisableEnableUser(t *testing.T) {

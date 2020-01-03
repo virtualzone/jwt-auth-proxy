@@ -32,6 +32,7 @@ func (router *AuthRouter) setupRoutes(s *mux.Router) {
 	if GetConfig().AllowForgotPassword {
 		s.HandleFunc("/initpwreset", router.InitForgotPassword).Methods("POST")
 	}
+	// TODO Add delete account
 	s.HandleFunc("/confirm/{id}", router.Confirm).Methods("POST")
 }
 
@@ -167,6 +168,10 @@ func (router *AuthRouter) Signup(w http.ResponseWriter, r *http.Request) {
 		SendAleadyExists(w)
 		return
 	}
+	if len(GetPendingActionRepository().GetByPayload(data.Email)) != 0 {
+		SendAleadyExists(w)
+		return
+	}
 	user = &User{
 		Email:          data.Email,
 		HashedPassword: GetUserRepository().GetHashedPassword(data.Password),
@@ -221,6 +226,14 @@ func (router *AuthRouter) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 	if !GetUserRepository().CheckPassword(user.HashedPassword, data.Password) {
 		log.Println("Invalid change email attempt: incorrect password for UserID", GetUserIDFromContext(r))
 		SendUnauthorized(w)
+		return
+	}
+	if GetUserRepository().GetByEmail(data.Email) != nil {
+		SendAleadyExists(w)
+		return
+	}
+	if len(GetPendingActionRepository().GetByPayload(data.Email)) != 0 {
+		SendAleadyExists(w)
 		return
 	}
 	pa := router._CreateConfirmPendingAction(user, PendingActionTypeChangeEmail, data.Email)
