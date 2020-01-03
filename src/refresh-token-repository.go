@@ -72,6 +72,13 @@ func (r *RefreshTokenRepository) GetByToken(token string) *RefreshToken {
 	return &refreshToken
 }
 
+func (r *RefreshTokenRepository) DeleteAllForUser(userID string) {
+	_, err := r.GetCollection().DeleteMany(context.TODO(), bson.M{"userId": GetDatatabase().GetObjectID(userID)})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func (r *RefreshTokenRepository) Delete(u *RefreshToken) {
 	_, err := r.GetCollection().DeleteOne(context.TODO(), bson.M{"_id": u.ID})
 	if err != nil {

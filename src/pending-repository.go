@@ -105,6 +105,13 @@ func (r *PendingActionRepository) Delete(u *PendingAction) {
 	}
 }
 
+func (r *PendingActionRepository) DeleteAllForUser(userID string) {
+	_, err := r.GetCollection().DeleteMany(context.TODO(), bson.M{"userId": GetDatatabase().GetObjectID(userID)})
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func (r *PendingActionRepository) FindUnusedToken() string {
 	var token string = ""
 	for i := 1; i <= 20 && token == ""; i++ {

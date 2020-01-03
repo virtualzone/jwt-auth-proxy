@@ -83,6 +83,8 @@ func (r *UserRepository) Update(u *User) {
 }
 
 func (r *UserRepository) Delete(u *User) {
+	GetPendingActionRepository().DeleteAllForUser(u.ID.Hex())
+	GetRefreshTokenRepository().DeleteAllForUser(u.ID.Hex())
 	_, err := r.GetCollection().DeleteOne(context.TODO(), bson.M{"_id": u.ID})
 	if err != nil {
 		log.Println(err)
