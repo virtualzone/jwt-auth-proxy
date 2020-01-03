@@ -108,13 +108,16 @@ func CorsMiddleware(next http.Handler) http.Handler {
 func VerifyJwtMiddleware(next http.Handler) http.Handler {
 	var IsWhitelisted = func(r *http.Request) bool {
 		url := r.URL.RequestURI()
+		log.Println(url)
 		for _, whitelistedURL := range unauthorizedRoutes {
-			if strings.HasPrefix(url, whitelistedURL) {
+			whitelistedURL = strings.TrimSpace(whitelistedURL)
+			if whitelistedURL != "" && strings.HasPrefix(url, whitelistedURL) {
 				return true
 			}
 		}
 		for _, whitelistedURL := range GetConfig().ProxyWhitelist {
-			if strings.HasPrefix(url, whitelistedURL) {
+			whitelistedURL = strings.TrimSpace(whitelistedURL)
+			if whitelistedURL != "" && strings.HasPrefix(url, whitelistedURL) {
 				return true
 			}
 		}

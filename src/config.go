@@ -93,7 +93,7 @@ func (c *Config) ReadConfig() {
 	} else {
 		c.ProxyTarget = proxyTaget
 	}
-	c.ProxyWhitelist = strings.Split(c._GetEnv("PROXY_WHITELIST", ""), ":")
+	c.ProxyWhitelist = strings.Split(strings.TrimSpace(c._GetEnv("PROXY_WHITELIST", "")), ":")
 	if i, err := strconv.Atoi(c._GetEnv("ACCESS_TOKEN_LIFETIME", "5")); err != nil {
 		log.Fatal(err)
 	} else {
