@@ -89,7 +89,7 @@ func TestSignupTwice(t *testing.T) {
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusCreated, res.Code)
 
-	payload = `{"email": "foo@bar.com", "password": "87654321"}`
+	payload = `{"email": "fOo@bAr.com", "password": "87654321"}`
 	req, _ = http.NewRequest("POST", "/auth/signup", bytes.NewBufferString(payload))
 	res = executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)
@@ -164,7 +164,7 @@ func TestAuthChangeEmailAlreadyExists(t *testing.T) {
 	loginResponse := createLoginTestUser()
 
 	// Init email change
-	payload := "{\"email\": \"foo2@bar.com\", \"password\": \"12345678\"}"
+	payload := "{\"email\": \"fOo2@bAr.com\", \"password\": \"12345678\"}"
 	req := newHTTPRequest("POST", "/auth/changeemail", loginResponse.AccessToken, bytes.NewBufferString(payload))
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)
@@ -184,7 +184,7 @@ func TestAuthChangeEmailConflictingPendingChange(t *testing.T) {
 	loginResponse := createLoginTestUser()
 
 	// Init email change
-	payload := "{\"email\": \"foo2@bar.com\", \"password\": \"12345678\"}"
+	payload := "{\"email\": \"fOo2@bAr.com\", \"password\": \"12345678\"}"
 	req := newHTTPRequest("POST", "/auth/changeemail", loginResponse.AccessToken, bytes.NewBufferString(payload))
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)

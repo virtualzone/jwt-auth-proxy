@@ -59,7 +59,7 @@ func TestCreateUserTwice(t *testing.T) {
 	res := executeBackendTestRequest(req)
 	checkTestResponseCode(t, http.StatusCreated, res.Code)
 
-	payload = `{"email": "foo@bar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	payload = `{"email": "fOo@bAr.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
 	req, _ = http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
 	res = executeBackendTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)
@@ -95,7 +95,7 @@ func TestCreateUserConflictingPendingChange(t *testing.T) {
 	}
 	GetPendingActionRepository().Create(&pa)
 
-	payload := `{"email": "foo@bar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
+	payload := `{"email": "fOo@Bar.com", "password": "12345678", "confirmed": true, "enabled": true, "data": {"color": "blue"}}`
 	req, _ := http.NewRequest("POST", "/users/", bytes.NewBufferString(payload))
 	res := executeBackendTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)
@@ -220,7 +220,7 @@ func TestChangeEmailConflictingChange(t *testing.T) {
 	}
 	GetPendingActionRepository().Create(&pa)
 
-	payload := `{"email": "foo2@bar.com"}`
+	payload := `{"email": "fOo2@bAr.com"}`
 	req, _ := http.NewRequest("PUT", "/users/"+user.ID.Hex()+"/email", bytes.NewBufferString(payload))
 	res := executeBackendTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)
