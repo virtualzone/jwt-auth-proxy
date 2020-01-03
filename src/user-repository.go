@@ -34,13 +34,21 @@ func GetUserRepository() *UserRepository {
 	_userRepositoryOnce.Do(func() {
 		_userRepositoryInstance = &UserRepository{}
 		ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+		// Create unique index on 'email'
+		col := &options.Collation{
+			Strength: 1,
+			Locale:   "en",
+		}
 		mod := mongo.IndexModel{
 			Keys: bson.M{
 				"email": 1,
 			},
-			Options: options.Index().SetUnique(true),
+			Options: options.Index().SetUnique(true).SetCollation(col),
 		}
-		_userRepositoryInstance.GetCollection().Indexes().CreateOne(ctx, mod)
+		_, err := _userRepositoryInstance.GetCollection().Indexes().CreateOne(ctx, mod)
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 	return _userRepositoryInstance
 }
@@ -68,7 +76,11 @@ func (r *UserRepository) GetOne(id string) *User {
 
 func (r *UserRepository) GetByEmail(email string) *User {
 	var user User
-	err := r.GetCollection().FindOne(context.TODO(), bson.M{"email": email}).Decode(&user)
+	col := &options.Collation{
+		Strength: 1,
+		Locale:   "en",
+	}
+	err := r.GetCollection().FindOne(context.TODO(), bson.M{"email": email}, options.FindOne().SetCollation(col)).Decode(&user)
 	if err != nil {
 		return nil
 	}

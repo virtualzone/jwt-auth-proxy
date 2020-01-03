@@ -234,7 +234,7 @@ func TestChangeEmailAlreadyExists(t *testing.T) {
 	}
 	GetUserRepository().Create(user2)
 
-	payload := `{"email": "foo2@bar.com"}`
+	payload := `{"email": "fOo2@bAr.com"}`
 	req, _ := http.NewRequest("PUT", "/users/"+user.ID.Hex()+"/email", bytes.NewBufferString(payload))
 	res := executeBackendTestRequest(req)
 	checkTestResponseCode(t, http.StatusConflict, res.Code)

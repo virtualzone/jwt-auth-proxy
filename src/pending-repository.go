@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 const PendingActionTypeConfirmAccount = 1
@@ -35,6 +36,33 @@ var _pendingActionRepositoryOnce sync.Once
 func GetPendingActionRepository() *PendingActionRepository {
 	_pendingActionRepositoryOnce.Do(func() {
 		_pendingActionRepositoryInstance = &PendingActionRepository{}
+		ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+		// Create unique index on 'token'
+		mod := mongo.IndexModel{
+			Keys: bson.M{
+				"token": 1,
+			},
+			Options: options.Index().SetUnique(true),
+		}
+		_, err := _pendingActionRepositoryInstance.GetCollection().Indexes().CreateOne(ctx, mod)
+		if err != nil {
+			log.Fatal(err)
+		}
+		// Create non-unique index on 'payload'
+		col := &options.Collation{
+			Strength: 1,
+			Locale:   "en",
+		}
+		mod = mongo.IndexModel{
+			Keys: bson.M{
+				"payload": 1,
+			},
+			Options: options.Index().SetUnique(false).SetCollation(col),
+		}
+		_, err = _pendingActionRepositoryInstance.GetCollection().Indexes().CreateOne(ctx, mod)
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 	return _pendingActionRepositoryInstance
 }
@@ -79,10 +107,14 @@ func (r *PendingActionRepository) GetByToken(token string) *PendingAction {
 
 func (r *PendingActionRepository) GetByPayload(payload string) []*PendingAction {
 	var results []*PendingAction
+	col := &options.Collation{
+		Strength: 1,
+		Locale:   "en",
+	}
 	cur, err := r.GetCollection().Find(context.TODO(), bson.M{
 		"payload":    payload,
 		"expiryDate": bson.M{"$gte": time.Now()},
-	})
+	}, options.Find().SetCollation(col))
 	if err != nil {
 		return results
 	}

@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	guuid "github.com/google/uuid"
 )
@@ -30,6 +31,18 @@ var _refreshTokenRepositoryOnce sync.Once
 func GetRefreshTokenRepository() *RefreshTokenRepository {
 	_refreshTokenRepositoryOnce.Do(func() {
 		_refreshTokenRepositoryInstance = &RefreshTokenRepository{}
+		ctx, _ := context.WithTimeout(context.Background(), 15*time.Second)
+		// Create unique index on 'token'
+		mod := mongo.IndexModel{
+			Keys: bson.M{
+				"token": 1,
+			},
+			Options: options.Index().SetUnique(true),
+		}
+		_, err := _refreshTokenRepositoryInstance.GetCollection().Indexes().CreateOne(ctx, mod)
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 	return _refreshTokenRepositoryInstance
 }
