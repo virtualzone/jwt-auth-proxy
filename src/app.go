@@ -45,12 +45,12 @@ func (a *App) InitializePublicRouter() {
 		subRouter := a.PublicRouter.PathPrefix(route).Subrouter()
 		router.setupRoutes(subRouter)
 	}
-	a.PublicRouter.PathPrefix("/").HandlerFunc(ProxyHandler)
-	a.PublicRouter.Use(VerifyJwtMiddleware)
 	if GetConfig().EnableCors {
 		a.PublicRouter.PathPrefix("/").Methods("OPTIONS").HandlerFunc(CorsHandler)
 		a.PublicRouter.Use(CorsMiddleware)
 	}
+	a.PublicRouter.PathPrefix("/").HandlerFunc(ProxyHandler)
+	a.PublicRouter.Use(VerifyJwtMiddleware)
 }
 
 func (a *App) InitializeBackendRouter() {

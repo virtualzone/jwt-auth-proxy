@@ -106,18 +106,27 @@ func CorsMiddleware(next http.Handler) http.Handler {
 }
 
 func VerifyJwtMiddleware(next http.Handler) http.Handler {
+	var isWhitelistMatch = func(url string, whitelistedURL string) bool {
+		whitelistedURL = strings.TrimSpace(whitelistedURL)
+		if strings.HasSuffix(whitelistedURL, "/") {
+			whitelistedURL = whitelistedURL[:len(whitelistedURL)-1]
+		}
+		if whitelistedURL != "" && (url == whitelistedURL || strings.HasPrefix(url, whitelistedURL+"/")) {
+			return true
+		}
+		return false
+	}
+
 	var IsWhitelisted = func(r *http.Request) bool {
 		url := r.URL.RequestURI()
 		log.Println(url)
 		for _, whitelistedURL := range unauthorizedRoutes {
-			whitelistedURL = strings.TrimSpace(whitelistedURL)
-			if whitelistedURL != "" && strings.HasPrefix(url, whitelistedURL) {
+			if isWhitelistMatch(url, whitelistedURL) {
 				return true
 			}
 		}
 		for _, whitelistedURL := range GetConfig().ProxyWhitelist {
-			whitelistedURL = strings.TrimSpace(whitelistedURL)
-			if whitelistedURL != "" && strings.HasPrefix(url, whitelistedURL) {
+			if isWhitelistMatch(url, whitelistedURL) {
 				return true
 			}
 		}
@@ -196,6 +205,6 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 var unauthorizedRoutes = [...]string{
 	GetConfig().PublicAPIPath + "login",
 	GetConfig().PublicAPIPath + "signup",
-	GetConfig().PublicAPIPath + "confirm/",
+	GetConfig().PublicAPIPath + "confirm",
 	GetConfig().PublicAPIPath + "initpwreset",
 }

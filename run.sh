@@ -8,4 +8,6 @@ TEMPLATE_CHANGE_EMAIL=../res/changeemail.tpl \
 TEMPLATE_RESET_PASSWORD=../res/resetpassword.tpl \
 TEMPLATE_NEW_PASSWORD=../res/newpassword.tpl \
 PROXY_TARGET=http://localhost:8090 \
+CORS_ENABLE=1 \
+PROXY_WHITELIST=/foo/bar \
 go run `ls *.go | grep -v _test.go`
