@@ -36,6 +36,7 @@ func (router *AuthRouter) setupRoutes(s *mux.Router) {
 		s.HandleFunc("/delete", router.DeleteAccount).Methods("POST")
 	}
 	s.HandleFunc("/confirm/{id}", router.Confirm).Methods("POST")
+	s.PathPrefix("/").Methods("OPTIONS").HandlerFunc(CorsHandler)
 	s.PathPrefix("/").HandlerFunc(router.NotFound)
 }
 

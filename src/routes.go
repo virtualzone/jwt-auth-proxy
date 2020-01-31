@@ -191,6 +191,7 @@ func VerifyJwtMiddleware(next http.Handler) http.Handler {
 
 func CorsHandler(w http.ResponseWriter, r *http.Request) {
 	SetCorsHeaders(w)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {

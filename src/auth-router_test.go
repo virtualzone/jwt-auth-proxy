@@ -45,6 +45,18 @@ func TestAuthSignup(t *testing.T) {
 	checkTestResponseCode(t, http.StatusOK, res.Code)
 }
 
+func TestAuthSignupCorsPreflight(t *testing.T) {
+	req, _ := http.NewRequest("OPTIONS", "/auth/signup", nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNoContent, res.Code)
+	if res.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Expected Access-Control-Allow-Origin to match '*'")
+	}
+	if res.Header().Get("Access-Control-Allow-Headers") != "*" {
+		t.Error("Expected Access-Control-Allow-Headers to match '*'")
+	}
+}
+
 func TestAuthInvalidPath1(t *testing.T) {
 	clearTestDB()
 	req, _ := http.NewRequest("POST", "/auth/signups", nil)

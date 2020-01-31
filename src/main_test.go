@@ -21,6 +21,7 @@ func TestMain(m *testing.M) {
 	os.Setenv("TEMPLATE_CHANGE_EMAIL", "../test/res/changeemail.tpl")
 	os.Setenv("TEMPLATE_RESET_PASSWORD", "../test/res/resetpassword.tpl")
 	os.Setenv("TEMPLATE_NEW_PASSWORD", "../test/res/newpassword.tpl")
+	os.Setenv("CORS_ENABLE", "1")
 	GetConfig().ReadConfig()
 	smtpClient = func(addr string) (dialer, error) {
 		client := &smtpDialerMock{}
