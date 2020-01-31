@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -105,6 +106,32 @@ func CorsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func ExtractClaimsFromRequest(r *http.Request) (*Claims, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return nil, errors.New("JWT header verification failed: missing auth header")
+	}
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return nil, errors.New("JWT header verification failed: invalid auth header")
+	}
+	authHeader = strings.TrimPrefix(authHeader, "Bearer ")
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(authHeader, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(GetConfig().JwtSigningKey), nil
+	})
+	if err != nil {
+		return nil, errors.New("JWT header verification failed: parsing JWT failed with: " + err.Error())
+	}
+	if !token.Valid {
+		return nil, errors.New("JWT header verification failed: invalid JWT")
+	}
+	log.Println("Successfully verified JWT header for UserID", claims.UserID)
+	return claims, nil
+}
+
 func VerifyJwtMiddleware(next http.Handler) http.Handler {
 	var isWhitelistMatch = func(url string, whitelistedURL string) bool {
 		whitelistedURL = strings.TrimSpace(whitelistedURL)
@@ -119,7 +146,6 @@ func VerifyJwtMiddleware(next http.Handler) http.Handler {
 
 	var IsWhitelisted = func(r *http.Request) bool {
 		url := r.URL.RequestURI()
-		log.Println(url)
 		for _, whitelistedURL := range unauthorizedRoutes {
 			if isWhitelistMatch(url, whitelistedURL) {
 				return true
@@ -133,43 +159,33 @@ func VerifyJwtMiddleware(next http.Handler) http.Handler {
 		return false
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if IsWhitelisted(r) {
+	var HandleWhitelistReq = func(w http.ResponseWriter, r *http.Request) {
+		claims, err := ExtractClaimsFromRequest(r)
+		if err != nil {
 			next.ServeHTTP(w, r)
 			return
 		}
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			log.Println("JWT header verification failed: missing auth header")
-			SendUnauthorized(w)
-			return
-		}
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			log.Println("JWT header verification failed: invalid auth header")
-			SendUnauthorized(w)
-			return
-		}
-		authHeader = strings.TrimPrefix(authHeader, "Bearer ")
-		claims := &Claims{}
-		token, err := jwt.ParseWithClaims(authHeader, claims, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-			}
-			return []byte(GetConfig().JwtSigningKey), nil
-		})
-		if err != nil {
-			log.Println("JWT header verification failed: parsing JWT failed with", err)
-			SendUnauthorized(w)
-			return
-		}
-		if !token.Valid {
-			log.Println("JWT header verification failed: invalid JWT")
-			SendUnauthorized(w)
-			return
-		}
-		log.Println("Successfully verified JWT header for UserID", claims.UserID)
 		ctx := context.WithValue(r.Context(), "UserID", claims.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+
+	var HandleNonWhitelistReq = func(w http.ResponseWriter, r *http.Request) {
+		claims, err := ExtractClaimsFromRequest(r)
+		if err != nil {
+			log.Println(err)
+			SendUnauthorized(w)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "UserID", claims.UserID)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if IsWhitelisted(r) {
+			HandleWhitelistReq(w, r)
+		} else {
+			HandleNonWhitelistReq(w, r)
+		}
 	})
 }
 

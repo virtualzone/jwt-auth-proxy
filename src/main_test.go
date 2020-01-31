@@ -16,7 +16,7 @@ import (
 
 func TestMain(m *testing.M) {
 	os.Setenv("PROXY_TARGET", "http://127.0.0.1:8090")
-	os.Setenv("PROXY_WHITELIST", "/some/route/whitelist.html")
+	os.Setenv("PROXY_WHITELIST", "/some/route/whitelist.html:/some/whitelist")
 	os.Setenv("TEMPLATE_SIGNUP", "../test/res/signup.tpl")
 	os.Setenv("TEMPLATE_CHANGE_EMAIL", "../test/res/changeemail.tpl")
 	os.Setenv("TEMPLATE_RESET_PASSWORD", "../test/res/resetpassword.tpl")

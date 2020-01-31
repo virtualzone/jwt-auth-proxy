@@ -45,6 +45,34 @@ func TestAuthSignup(t *testing.T) {
 	checkTestResponseCode(t, http.StatusOK, res.Code)
 }
 
+func TestAuthInvalidPath1(t *testing.T) {
+	clearTestDB()
+	req, _ := http.NewRequest("POST", "/auth/signups", nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
+}
+
+func TestAuthInvalidPath2(t *testing.T) {
+	clearTestDB()
+	req, _ := http.NewRequest("POST", "/auth/", nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
+}
+
+func TestAuthInvalidPath3(t *testing.T) {
+	clearTestDB()
+	req, _ := http.NewRequest("POST", "/auth/signup/test", nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNotFound, res.Code)
+}
+
+func TestAuthInvalidMethod(t *testing.T) {
+	clearTestDB()
+	req, _ := http.NewRequest("GET", "/auth/signup", nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNotFound, res.Code)
+}
+
 func TestAuthSignupConflictingPendingChange(t *testing.T) {
 	clearTestDB()
 	pa := PendingAction{
