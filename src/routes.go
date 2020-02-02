@@ -181,7 +181,9 @@ func VerifyJwtMiddleware(next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if IsWhitelisted(r) {
+		if r.Method == "OPTIONS" {
+			HandleWhitelistReq(w, r)
+		} else if IsWhitelisted(r) {
 			HandleWhitelistReq(w, r)
 		} else {
 			HandleNonWhitelistReq(w, r)

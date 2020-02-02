@@ -57,6 +57,18 @@ func TestAuthSignupCorsPreflight(t *testing.T) {
 	}
 }
 
+func TestAuthLogoutCorsPreflight(t *testing.T) {
+	req, _ := http.NewRequest("OPTIONS", "/auth/logout", nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNoContent, res.Code)
+	if res.Header().Get("Access-Control-Allow-Origin") != "*" {
+		t.Error("Expected Access-Control-Allow-Origin to match '*'")
+	}
+	if res.Header().Get("Access-Control-Allow-Headers") != "*" {
+		t.Error("Expected Access-Control-Allow-Headers to match '*'")
+	}
+}
+
 func TestAuthInvalidPath1(t *testing.T) {
 	clearTestDB()
 	req, _ := http.NewRequest("POST", "/auth/signups", nil)
@@ -392,12 +404,12 @@ func TestLogout(t *testing.T) {
 	checkTestResponseCode(t, http.StatusNoContent, res.Code)
 }
 
-func TestRenew(t *testing.T) {
+func TestRefresh(t *testing.T) {
 	clearTestDB()
 	loginResponse := createLoginTestUser()
 
 	payload := "{\"refreshToken\": \"" + loginResponse.RefreshToken + "\"}"
-	req := newHTTPRequest("POST", "/auth/renew", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	req := newHTTPRequest("POST", "/auth/refresh", loginResponse.AccessToken, bytes.NewBufferString(payload))
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusOK, res.Code)
 
@@ -408,22 +420,22 @@ func TestRenew(t *testing.T) {
 	}
 }
 
-func TestRenewWithInvalidRefreshToken(t *testing.T) {
+func TestRefreshWithInvalidRefreshToken(t *testing.T) {
 	clearTestDB()
 	loginResponse := createLoginTestUser()
 
 	payload := "{\"refreshToken\": \"xxxxxxxxxxxxxx\"}"
-	req := newHTTPRequest("POST", "/auth/renew", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	req := newHTTPRequest("POST", "/auth/refresh", loginResponse.AccessToken, bytes.NewBufferString(payload))
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
 }
 
-func TestRenewWithoutRefreshToken(t *testing.T) {
+func TestRefreshWithoutRefreshToken(t *testing.T) {
 	clearTestDB()
 	loginResponse := createLoginTestUser()
 
 	payload := "{}"
-	req := newHTTPRequest("POST", "/auth/renew", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	req := newHTTPRequest("POST", "/auth/refresh", loginResponse.AccessToken, bytes.NewBufferString(payload))
 	res := executePublicTestRequest(req)
 	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
 }

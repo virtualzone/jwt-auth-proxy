@@ -115,15 +115,15 @@ When your application's backend receives an HTTP request proxied through the JWT
   }
   ```
 
-### Renew Access Token
-* Use case: Renew short-lived Access Token with long-lived Refresh Token.
-* URL: /auth/renew
+### Refresh Access Token
+* Use case: Refresh short-lived Access Token with long-lived Refresh Token.
+* URL: /auth/refresh
 * Method: POST
 * Request Header: ```Authorization: Bearer <Access Token>```
 * JSON Payload: 
   ```
   {
-      "renewToken": "<long-lived UUIDv4 Refresh Token from login>"
+      "refreshToken": "<long-lived UUIDv4 Refresh Token from login>"
   }
   ```
 * HTTP Response Status Codes:
@@ -146,7 +146,7 @@ When your application's backend receives an HTTP request proxied through the JWT
 * JSON Payload: 
   ```
   {
-      "renewToken": "<long-lived UUIDv4 Refresh Token from login>"
+      "refreshToken": "<long-lived UUIDv4 Refresh Token from login>"
   }
   ```
 * HTTP Response Status Codes:

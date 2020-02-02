@@ -17,7 +17,7 @@ type AuthRouter struct {
 
 func (router *AuthRouter) setupRoutes(s *mux.Router) {
 	s.HandleFunc("/login", router.Login).Methods("POST")
-	s.HandleFunc("/renew", router.Renew).Methods("POST")
+	s.HandleFunc("/refresh", router.Refresh).Methods("POST")
 	s.HandleFunc("/logout", router.Logout).Methods("POST")
 	s.HandleFunc("/ping", router.Ping).Methods("GET")
 	if GetConfig().AllowSignup {
@@ -83,42 +83,42 @@ func (router *AuthRouter) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Renew handles /renew requests
-func (router *AuthRouter) Renew(w http.ResponseWriter, r *http.Request) {
-	var data RenewRequest
+// Refresh handles /refresh requests
+func (router *AuthRouter) Refresh(w http.ResponseWriter, r *http.Request) {
+	var data RefreshRequest
 	if UnmarshalValidateBody(r, &data) != nil {
-		log.Println("Invalid renewal attempt: failed unmarshalling request")
+		log.Println("Invalid token refresh attempt: failed unmarshalling request")
 		SendBadRequest(w)
 		return
 	}
 	refreshToken := GetRefreshTokenRepository().GetByToken(data.RefreshToken)
 	if refreshToken == nil {
-		log.Println("Invalid renewal attempt: invalid refresh token")
+		log.Println("Invalid token refresh attempt: invalid refresh token")
 		SendBadRequest(w)
 		return
 	}
 	if refreshToken.ExpiryDate.Before(time.Now()) {
-		log.Println("Invalid renewal attempt: refresh token expired")
+		log.Println("Invalid token refresh attempt: refresh token expired")
 		SendBadRequest(w)
 		return
 	}
 	user := GetUserRepository().GetOne(GetUserIDFromContext(r))
 	if user == nil {
-		log.Println("Invalid renewal attempt: invalid UserID", GetUserIDFromContext(r))
+		log.Println("Invalid token refresh attempt: invalid UserID", GetUserIDFromContext(r))
 		SendUnauthorized(w)
 		return
 	}
 	if user.Confirmed == false {
-		log.Println("Invalid renewal attempt: unconfirmed account", user.ID.Hex())
+		log.Println("Invalid token refresh attempt: unconfirmed account", user.ID.Hex())
 		SendUnauthorized(w)
 		return
 	}
 	if user.Enabled == false {
-		log.Println("Invalid renewal attempt: disabled account", user.ID.Hex())
+		log.Println("Invalid token refresh attempt: disabled account", user.ID.Hex())
 		SendUnauthorized(w)
 		return
 	}
-	log.Println("Successful renewal for UserID", user.ID.Hex())
+	log.Println("Successful token refresh for UserID", user.ID.Hex())
 	accessToken := router._CreateAccessToken(user)
 	SendJSON(w, &LoginResponse{
 		AccessToken:  accessToken,
@@ -128,7 +128,7 @@ func (router *AuthRouter) Renew(w http.ResponseWriter, r *http.Request) {
 
 // Logout handles /logout requests
 func (router *AuthRouter) Logout(w http.ResponseWriter, r *http.Request) {
-	var data RenewRequest
+	var data RefreshRequest
 	if UnmarshalValidateBody(r, &data) != nil {
 		log.Println("Invalid logout attempt: failed unmarshalling request")
 		SendBadRequest(w)
@@ -422,8 +422,8 @@ type ForgotPasswordRequest struct {
 	Email string `json:"email" validate:"required,email"`
 }
 
-// RenewRequest holds the POST payload for renew requests
-type RenewRequest struct {
+// RefreshRequest holds the POST payload for refresh requests
+type RefreshRequest struct {
 	RefreshToken string `json:"refreshToken" validate:"required"`
 }
 
