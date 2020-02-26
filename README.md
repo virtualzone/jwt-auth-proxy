@@ -19,7 +19,7 @@ JWT Auth Proxy uses short-lived JWT access tokens (HMAC-signing with SHA-512) an
   * Email address change with double-opt-in
   * JWT access token renewal using long-lived refresh tokens
 * Proxy authenticated requests to your application's backend
-* Whitelist backend URLs not requiring authentication
+* Whitelist backend URLs not requiring authentication (or blacklist)
 
 ### Application-/Backend-facing
 * mTLS encrypted connecting (mutual TLS)
@@ -32,38 +32,29 @@ JWT Auth Proxy uses short-lived JWT access tokens (HMAC-signing with SHA-512) an
   * Set email address
   * Store and retrieve custom per-user data (JSON)
 
+## Example
+There is a little sample application in the [example folder](https://github.com/virtualzone/jwt-auth-proxy/tree/master/example). It consists of the JWT Auth Proxy, a React-based web frontend and a Go-based application backend. It also contains a MongoDB instance and an instance of the Mailhog fake SMTP server.
+
+To start the example:
+
+```
+git clone https://github.com/virtualzone/jwt-auth-proxy.git
+cd jwt-auth-proxy/example
+docker-compose up -d
+```
+
+Access the frontend at: http://localhost:8080
+
+To access the Mailhog frontend and check for your signup mail: http://localhost:8025
+
 ## Setup
 Prerequisites: A MongoDB instance (tested with MongoDB v4).
 
-Please refer to the [docker-compose.yml](https://github.com/virtualzone/jwt-auth-proxy/blob/master/docker-compose.yml) example on how to use the pre-build Docker image.
+Please refer to the [docker-compose.yml](https://github.com/virtualzone/jwt-auth-proxy/blob/master/example/docker-compose.yml) example on how to use the pre-build Docker image.
 
 The server requires a key and a certificate for providing mTLS encryption for the backend REST API.
 
-To generate the server's key and certificate:
-```
-mkdir -p /opt/docker/jwt-auth-proxy/certs/server
-cd /opt/docker/jwt-auth-proxy/certs
-
-# Generate the server key and cert
-openssl genrsa -out server/server.key 4096
-openssl req -new -x509 -sha256 -key server/server.key -out server/server.crt -days 3650
-
-# Prepare serial for client certificate signing
-echo "00" > server/server.srl
-```
-
-To generate client key and self-signed certificate:
-```
-mkdir -p /opt/docker/jwt-auth-proxy/certs/clients
-cd /opt/docker/jwt-auth-proxy/certs
-
-# Generate client key and certicate signing request:
-openssl genrsa -out clients/client1.key 4096
-openssl req -new -key clients/client1.key -out clients/client1.csr
-
-# Sign the certificate with the server's key:
-openssl x509 -req -in clients/client1.csr -CA server/server.crt -CAkey server/server.key -CAserial server/server.srl -out clients/client1.crt
-```
+You can generate the server's and clients' keys and certificates manually using OpenSSL. By default, the server will create a CA and generate keys and certificates for both server and client on startup (see BACKEND_GENERATE_CERT environment variable).
 
 ## Handling proxied requests in your application's backend
 When your application's backend receives an HTTP request proxied through the JWT Auth Proxy, it receives all the HTTP request headers sent by the HTTP client/browser, plus:
@@ -150,7 +141,7 @@ When your application's backend receives an HTTP request proxied through the JWT
   }
   ```
 * HTTP Response Status Codes:
-  * 201: No content (successful)
+  * 204: No content (successful)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
 
@@ -160,7 +151,7 @@ When your application's backend receives an HTTP request proxied through the JWT
 * Method: GET
 * Request Header: ```Authorization: Bearer <Access Token>```
 * HTTP Response Status Codes:
-  * 201: No content (successful)
+  * 204: No content (successful)
   * 401: Unauthorized (authorization failed due to various reasons)
 
 ### Confirm
@@ -168,7 +159,7 @@ When your application's backend receives an HTTP request proxied through the JWT
 * URL: /auth/confirm/```<ID from email>```
 * Method: POST
 * HTTP Response Status Codes:
-  * 201: No content (successful)
+  * 204: No content (successful)
   * 404: Not found (invalid, expired or already confirmed ID)
 
 ### Set password
@@ -184,7 +175,7 @@ When your application's backend receives an HTTP request proxied through the JWT
   }
   ```
 * HTTP Response Status Codes:
-  * 201: No content (successful)
+  * 204: No content (successful)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
 
@@ -201,7 +192,7 @@ When your application's backend receives an HTTP request proxied through the JWT
   }
   ```
 * HTTP Response Status Codes:
-  * 201: No content (successful, email sent to new email address - confirmation required before new address gets activated)
+  * 204: No content (successful, email sent to new email address - confirmation required before new address gets activated)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
   * 409: Conflict (email address already exists)
@@ -217,7 +208,7 @@ When your application's backend receives an HTTP request proxied through the JWT
   }
   ```
 * HTTP Response Status Codes:
-  * 201: No content (successful, email sent user - confirmation required before new password is generated)
+  * 204: No content (successful, email sent user - confirmation required before new password is generated)
   * 400: Bad request (invalid JSON payload)
 
 ### Delete account
@@ -232,11 +223,11 @@ When your application's backend receives an HTTP request proxied through the JWT
   }
   ```
 * HTTP Response Status Codes:
-  * 201: No content (successful)
+  * 204: No content (successful)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
 
-## Applicaiton-/Backend-facing REST API
+## Application-/Backend-facing REST API
 ### Create user
 * Use case: Create a new user.
 * URL: /users/
@@ -388,8 +379,10 @@ JWT_SIGNING_KEY | 32 Bytes Random String | The private key for signing the JWT a
 PUBLIC_LISTEN_ADDR | 0.0.0.0:8080 | The listening address for the user-facing HTTP server.
 PUBLIC_API_PATH | /auth/ | The path for the user-facing REST API.
 BACKEND_LISTEN_ADDR | 0.0.0.0:8443 | The listening address for the backend-facing HTTPS server.
-BACKEND_CERT_FILE | certs/server/server.crt | The backend-facing HTTP server's public certificate (mTLS).
-BACKEND_KEY_FILE | certs/server/server.key | The backend-facing HTTP server's private key (mTLS).
+BACKEND_CERT_DIR | ./certs/ | The directory containing the backend-facing HTTP server's certificates (mTLS).
+BACKEND_GENERATE_CERT | 1 | Whether to create CA and server key-pair on startup (= 1).
+BACKEND_CERT_HOSTNAMES | localhost | The hostnames to generate the server certificate for, separated by commas.
+BACKEND_CERT_IPS | 127.0.0.1,::1 | The IP addresses to generate the server certificate for, separated by commas.
 TEMPLATE_SIGNUP | res/signup.tpl | The email template for signup confirmation mails.
 TEMPLATE_CHANGE_EMAIL | res/changeemail.tpl | The email template for email address change confirmation mails.
 TEMPLATE_RESET_PASSWORD | res/resetpassword.tpl | The email template for password reset confirmation mails.
@@ -407,7 +400,8 @@ ALLOW_CHANGE_EMAIL | 1 | Whether to allow (= 1) change email address requests at
 ALLOW_FORGOT_PASSWORD | 1 | Whether to allow (= 1) password reset requests at the user-facing HTTP server.
 ALLOW_DELETE_ACCOUNT | 1 | Whether to allow (= 1) "delete my account" requests at the user-facing HTTP server.
 PROXY_TARGET | http://127.0.0.1:80 | The target server hosting your application backend.
-PROXY_WHITELIST | '' | Whitelisted URL prefixes at the target server not requiring a valid authentication. Separate prefixes by colons (':').
+PROXY_WHITELIST | '' | Whitelisted URL prefixes at the target server not requiring a valid authentication. Separate prefixes by colons (':'). Don't use with PROXY_BLACKLIST.
+PROXY_BLACKLIST | '' | Blacklisted URL prefixes at the target server requiring a valid authentication. Separate prefixes by colons (':'). Don't use with PROXY_WHITELIST.
 ACCESS_TOKEN_LIFETIME | 5 | The access token lifetime in minutes.
 REFRESH_TOKEN_LIFETIME | 1,440 | The refresh token lifetime in minutes.
 PENDING_ACTION_LIFETIME | 1,440 | The lifetime of pending actions (such as confirmation requests) in minutes.

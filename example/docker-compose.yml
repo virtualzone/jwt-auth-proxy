@@ -1,0 +1,60 @@
+version: '3'
+services:
+    proxy:
+        image: virtualzone/jwt-auth-proxy
+        restart: unless-stopped
+        ports:
+            - 8080:8080
+        networks:
+            - app
+            - db
+            - frontend
+            - mail
+        volumes:
+            - certs:/app/certs
+            - ./res/changeemail.tpl:/app/res/changeemail.tpl:ro
+            - ./res/resetpassword.tpl:/app/res/resetpassword.tpl:ro
+            - ./res/signup.tpl:/app/res/signup.tpl:ro
+        environment:
+            MONGO_DB_URL: 'mongodb://mongo:27017'
+            PROXY_TARGET: 'http://app:8090'
+            PROXY_BLACKLIST: '/api/'
+            BACKEND_CERT_DIR: '/app/certs/'
+            BACKEND_CERT_HOSTNAMES: 'proxy'
+            SMTP_SERVER: 'smtp:1025'
+        depends_on:
+            - mongo
+    mongo:
+        image: mongo:4
+        restart: unless-stopped
+        networks:
+            - db
+        volumes:
+            - mongo:/data/db
+    app:
+        build: .
+        restart: unless-stopped
+        networks:
+            - app
+        volumes:
+            - certs:/app/certs
+        environment:
+            STATIC_FILE_PATH: '/app/static/'
+            PROXY_ADDR: 'https://proxy:8443/'
+    smtp:
+        image: mailhog/mailhog
+        restart: unless-stopped
+        ports:
+            - 8025:8025
+        networks:
+            - mail
+            - frontend
+volumes:
+    mongo:
+    certs:
+networks:
+    db:
+    app:
+    mail:
+    frontend:
+        driver: bridge
