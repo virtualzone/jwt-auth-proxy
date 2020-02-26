@@ -146,17 +146,32 @@ func VerifyJwtMiddleware(next http.Handler) http.Handler {
 
 	var IsWhitelisted = func(r *http.Request) bool {
 		url := r.URL.RequestURI()
+		// Check for whitelisted public API paths
 		for _, whitelistedURL := range unauthorizedRoutes {
 			if isWhitelistMatch(url, whitelistedURL) {
 				return true
 			}
 		}
-		for _, whitelistedURL := range GetConfig().ProxyWhitelist {
-			if isWhitelistMatch(url, whitelistedURL) {
-				return true
+		// All other public API paths require a valid auth token
+		if strings.HasPrefix(url, GetConfig().PublicAPIPath) {
+			return false
+		}
+		// Whitelist Mode: Check is URL is whitelisted, else assume auth token is required
+		if len(GetConfig().ProxyWhitelist) > 0 {
+			for _, whitelistedURL := range GetConfig().ProxyWhitelist {
+				if isWhitelistMatch(url, whitelistedURL) {
+					return true
+				}
+			}
+			return false
+		}
+		// Blacklist Mode: Check is URL is blacklisted, else assume auth token is NOT required
+		for _, blacklistedURL := range GetConfig().ProxyBlacklist {
+			if isWhitelistMatch(url, blacklistedURL) {
+				return false
 			}
 		}
-		return false
+		return true
 	}
 
 	var HandleWhitelistReq = func(w http.ResponseWriter, r *http.Request) {

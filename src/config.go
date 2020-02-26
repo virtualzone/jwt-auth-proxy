@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"math/rand"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -16,8 +17,10 @@ type Config struct {
 	PublicListenAddr      string
 	PublicAPIPath         string
 	BackendListenAddr     string
-	BackendCertFile       string
-	BackendKeyFile        string
+	BackendCertDir        string
+	BackendCertHostnames  []string
+	BackendCertIPs        []net.IP
+	BackendGenerateCert   bool
 	TemplateSignup        string
 	TemplateChangeEmail   string
 	TemplateResetPassword string
@@ -36,6 +39,7 @@ type Config struct {
 	AllowDeleteAccount    bool
 	ProxyTarget           *url.URL
 	ProxyWhitelist        []string
+	ProxyBlacklist        []string
 	AccessTokenLifetime   time.Duration
 	RefreshTokenLifetime  time.Duration
 	PendingActionLifetime time.Duration
@@ -69,9 +73,21 @@ func (c *Config) ReadConfig() {
 	c.JwtSigningKey = c._GetEnv("JWT_SIGNING_KEY", c.GenerateRandomPassword(32))
 	c.PublicListenAddr = c._GetEnv("PUBLIC_LISTEN_ADDR", "0.0.0.0:8080")
 	c.PublicAPIPath = c._GetEnv("PUBLIC_API_PATH", "/auth/")
+	if !strings.HasSuffix(c.PublicAPIPath, "/") {
+		c.PublicAPIPath += "/"
+	}
 	c.BackendListenAddr = c._GetEnv("BACKEND_LISTEN_ADDR", "0.0.0.0:8443")
-	c.BackendCertFile = c._GetEnv("BACKEND_CERT_FILE", "certs/server/server.crt")
-	c.BackendKeyFile = c._GetEnv("BACKEND_KEY_FILE", "certs/server/server.key")
+	c.BackendCertDir = c._GetEnv("BACKEND_CERT_DIR", "./certs/")
+	if !strings.HasSuffix(c.BackendCertDir, "/") {
+		c.BackendCertDir += "/"
+	}
+	c.BackendCertHostnames = strings.Split(c._GetEnv("BACKEND_CERT_HOSTNAMES", "localhost"), ",")
+	splitIPs := strings.Split(c._GetEnv("BACKEND_CERT_IPS", "127.0.0.1,::1"), ",")
+	c.BackendCertIPs = make([]net.IP, len(splitIPs))
+	for i, ipAddr := range splitIPs {
+		c.BackendCertIPs[i] = net.ParseIP(ipAddr)
+	}
+	c.BackendGenerateCert = (c._GetEnv("BACKEND_GENERATE_CERT", "1") == "1")
 	c.TemplateSignup = c._GetEnv("TEMPLATE_SIGNUP", "res/signup.tpl")
 	c.TemplateChangeEmail = c._GetEnv("TEMPLATE_CHANGE_EMAIL", "res/changeemail.tpl")
 	c.TemplateResetPassword = c._GetEnv("TEMPLATE_RESET_PASSWORD", "res/resetpassword.tpl")
@@ -94,6 +110,16 @@ func (c *Config) ReadConfig() {
 		c.ProxyTarget = proxyTaget
 	}
 	c.ProxyWhitelist = strings.Split(strings.TrimSpace(c._GetEnv("PROXY_WHITELIST", "")), ":")
+	if len(c.ProxyWhitelist) == 1 && c.ProxyWhitelist[0] == "" {
+		c.ProxyWhitelist = make([]string, 0)
+	}
+	c.ProxyBlacklist = strings.Split(strings.TrimSpace(c._GetEnv("PROXY_BLACKLIST", "")), ":")
+	if len(c.ProxyBlacklist) == 1 && c.ProxyBlacklist[0] == "" {
+		c.ProxyBlacklist = make([]string, 0)
+	}
+	if len(c.ProxyBlacklist) > 0 && len(c.ProxyWhitelist) > 0 {
+		log.Fatal("Can't set both PROXY_WHITELIST and PROXY_BLACKLIST")
+	}
 	if i, err := strconv.Atoi(c._GetEnv("ACCESS_TOKEN_LIFETIME", "5")); err != nil {
 		log.Fatal(err)
 	} else {

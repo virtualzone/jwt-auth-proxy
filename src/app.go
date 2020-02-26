@@ -106,7 +106,47 @@ func (a *App) InitializeTimers() {
 	}()
 }
 
+func (a *App) GenerateBackendCert() {
+	log.Println("Generating Backend mTLS Certificate...")
+	dir := GetConfig().BackendCertDir
+	ca, err := CertCreateCA()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if err := ca.SavePrivateKey(dir + "ca.key"); err != nil {
+		log.Fatalln(err)
+	}
+	if err := ca.SaveCertificate(dir + "ca.crt"); err != nil {
+		log.Fatalln(err)
+	}
+
+	server, err := CertCreateSign(ca)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if err := server.SavePrivateKey(dir + "server.key"); err != nil {
+		log.Fatalln(err)
+	}
+	if err := server.SaveCertificate(dir + "server.crt"); err != nil {
+		log.Fatalln(err)
+	}
+
+	client, err := CertCreateSign(ca)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	if err := client.SavePrivateKey(dir + "client.key"); err != nil {
+		log.Fatalln(err)
+	}
+	if err := client.SaveCertificate(dir + "client.crt"); err != nil {
+		log.Fatalln(err)
+	}
+}
+
 func (a *App) Run(publicListenAddr, backendListenAddr string) {
+	if GetConfig().BackendGenerateCert {
+		a.GenerateBackendCert()
+	}
 	log.Println("Initializing REST services...")
 	publicServer := &http.Server{
 		Addr:         publicListenAddr,
@@ -132,7 +172,7 @@ func (a *App) Run(publicListenAddr, backendListenAddr string) {
 		TLSConfig:    tlsConfig,
 	}
 	go func() {
-		if err := backendServer.ListenAndServeTLS(GetConfig().BackendCertFile, GetConfig().BackendKeyFile); err != nil {
+		if err := backendServer.ListenAndServeTLS(GetConfig().BackendCertDir+"server.crt", GetConfig().BackendCertDir+"server.key"); err != nil {
 			log.Fatal(err)
 			os.Exit(-1)
 		}
@@ -151,7 +191,7 @@ func (a *App) Run(publicListenAddr, backendListenAddr string) {
 }
 
 func (a *App) _CreateTLSConfig() *tls.Config {
-	crt, _ := filepath.Abs(GetConfig().BackendCertFile)
+	crt, _ := filepath.Abs(GetConfig().BackendCertDir + "ca.crt")
 	clientCaCert, err := ioutil.ReadFile(crt)
 	if err != nil {
 		log.Fatal(err)

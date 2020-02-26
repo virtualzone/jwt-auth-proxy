@@ -18,8 +18,11 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
         org.label-schema.version=$VERSION \
         org.label-schema.schema-version="1.0"
 RUN adduser -S -D -H -h /app appuser
-USER appuser
 COPY --from=builder /go/src/app/main /app/
 ADD res/ /app/res/
+RUN mkdir /app/certs
+RUN chown -R appuser /app
+USER appuser
+VOLUME /app/certs
 WORKDIR /app
 CMD ["./main"]

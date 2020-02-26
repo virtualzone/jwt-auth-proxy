@@ -1,0 +1,5 @@
+**/test/clients/
+**/test/server/
+.DS_Store
+test/
+example/

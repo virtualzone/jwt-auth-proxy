@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -541,4 +542,31 @@ func TestChangePasswordInvalidNewPassword(t *testing.T) {
 	res := executePublicTestRequest(req)
 
 	checkTestResponseCode(t, http.StatusBadRequest, res.Code)
+}
+
+func TestAuthBlacklistRoutes(t *testing.T) {
+	oldEnv := os.Getenv("PROXY_WHITELIST")
+	os.Setenv("PROXY_WHITELIST", "")
+	os.Setenv("PROXY_BLACKLIST", "/some/proxy/route")
+	GetConfig().ReadConfig()
+
+	defer func() {
+		os.Setenv("PROXY_BLACKLIST", "")
+		os.Setenv("PROXY_WHITELIST", oldEnv)
+		GetConfig().ReadConfig()
+	}()
+
+	routes := []string{
+		"/auth/delete",
+		"/auth/refresh",
+		"/auth/logout",
+		"/auth/setpw",
+		"/auth/changeemail",
+	}
+	for _, route := range routes {
+		payload := `{}`
+		req := newHTTPRequest("POST", route, "", bytes.NewBufferString(payload))
+		res := executePublicTestRequest(req)
+		checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
+	}
 }
