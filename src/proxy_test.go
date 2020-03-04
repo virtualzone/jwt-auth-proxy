@@ -88,6 +88,58 @@ func TestProxySuccessWhitelistWithAuth(t *testing.T) {
 	}
 }
 
+func TestProxyFakeUserIDHeaderWhitelistWithoutAuth(t *testing.T) {
+	handler := &dummyProxyHandler{}
+	var proxy *http.Server = &http.Server{
+		Addr:    "0.0.0.0:8090",
+		Handler: handler,
+	}
+	go func() {
+		proxy.ListenAndServe()
+	}()
+
+	clearTestDB()
+
+	req := newHTTPRequest("GET", "/some/whitelist/page.html", "", nil)
+	req.Header.Set("X-Auth-UserID", "FAKE")
+	res := executePublicTestRequest(req)
+
+	proxy.Shutdown(context.TODO())
+	checkTestResponseCode(t, http.StatusOK, res.Code)
+	if handler.Headers.Get("Authorization") != "" {
+		t.Error("Expected empty Authorizationheader, got: " + handler.Headers.Get("Authorization"))
+	}
+	if handler.Headers.Get("X-Auth-UserID") != "" {
+		t.Error("Expected empty X-Auth-UserID header, got: " + handler.Headers.Get("X-Auth-UserID"))
+	}
+}
+
+func TestProxyFakeAuthHeaderWhitelistWithoutAuth(t *testing.T) {
+	handler := &dummyProxyHandler{}
+	var proxy *http.Server = &http.Server{
+		Addr:    "0.0.0.0:8090",
+		Handler: handler,
+	}
+	go func() {
+		proxy.ListenAndServe()
+	}()
+
+	clearTestDB()
+
+	req := newHTTPRequest("GET", "/some/whitelist/page.html", "", nil)
+	req.Header.Set("Authorization", "Bearer FAKE")
+	res := executePublicTestRequest(req)
+
+	proxy.Shutdown(context.TODO())
+	checkTestResponseCode(t, http.StatusOK, res.Code)
+	if handler.Headers.Get("Authorization") != "" {
+		t.Error("Expected empty Authorizationheader, got: " + handler.Headers.Get("Authorization"))
+	}
+	if handler.Headers.Get("X-Auth-UserID") != "" {
+		t.Error("Expected empty X-Auth-UserID header, got: " + handler.Headers.Get("X-Auth-UserID"))
+	}
+}
+
 func TestProxySuccessWhitelistedWithoutAuth(t *testing.T) {
 	handler := &dummyProxyHandler{}
 	var proxy *http.Server = &http.Server{

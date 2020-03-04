@@ -22,6 +22,17 @@ type Route interface {
 	setupRoutes(s *mux.Router)
 }
 
+type contextKey string
+
+func (c contextKey) String() string {
+	return "jwt-auth-proxy context key " + string(c)
+}
+
+var (
+	contextKeyUserID     = contextKey("UserID")
+	contextKeyAuthHeader = contextKey("AuthHeader")
+)
+
 func SendNotFound(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNotFound)
 }
@@ -87,11 +98,19 @@ func UnmarshalValidateBody(r *http.Request, o interface{}) error {
 }
 
 func GetUserIDFromContext(r *http.Request) string {
-	userID := r.Context().Value("UserID")
+	userID := r.Context().Value(contextKeyUserID)
 	if userID == nil {
 		return ""
 	}
 	return userID.(string)
+}
+
+func GetAuthHeaderFromContext(r *http.Request) string {
+	authHeader := r.Context().Value(contextKeyAuthHeader)
+	if authHeader == nil {
+		return ""
+	}
+	return authHeader.(string)
 }
 
 func SetCorsHeaders(w http.ResponseWriter) {
@@ -106,13 +125,13 @@ func CorsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func ExtractClaimsFromRequest(r *http.Request) (*Claims, error) {
+func ExtractClaimsFromRequest(r *http.Request) (*Claims, string, error) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		return nil, errors.New("JWT header verification failed: missing auth header")
+		return nil, "", errors.New("JWT header verification failed: missing auth header")
 	}
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return nil, errors.New("JWT header verification failed: invalid auth header")
+		return nil, "", errors.New("JWT header verification failed: invalid auth header")
 	}
 	authHeader = strings.TrimPrefix(authHeader, "Bearer ")
 	claims := &Claims{}
@@ -123,13 +142,13 @@ func ExtractClaimsFromRequest(r *http.Request) (*Claims, error) {
 		return []byte(GetConfig().JwtSigningKey), nil
 	})
 	if err != nil {
-		return nil, errors.New("JWT header verification failed: parsing JWT failed with: " + err.Error())
+		return nil, "", errors.New("JWT header verification failed: parsing JWT failed with: " + err.Error())
 	}
 	if !token.Valid {
-		return nil, errors.New("JWT header verification failed: invalid JWT")
+		return nil, "", errors.New("JWT header verification failed: invalid JWT")
 	}
 	log.Println("Successfully verified JWT header for UserID", claims.UserID)
-	return claims, nil
+	return claims, authHeader, nil
 }
 
 func VerifyJwtMiddleware(next http.Handler) http.Handler {
@@ -175,23 +194,25 @@ func VerifyJwtMiddleware(next http.Handler) http.Handler {
 	}
 
 	var HandleWhitelistReq = func(w http.ResponseWriter, r *http.Request) {
-		claims, err := ExtractClaimsFromRequest(r)
+		claims, authHeader, err := ExtractClaimsFromRequest(r)
 		if err != nil {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "UserID", claims.UserID)
+		ctx := context.WithValue(r.Context(), contextKeyUserID, claims.UserID)
+		ctx = context.WithValue(ctx, contextKeyAuthHeader, authHeader)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 
 	var HandleNonWhitelistReq = func(w http.ResponseWriter, r *http.Request) {
-		claims, err := ExtractClaimsFromRequest(r)
+		claims, authHeader, err := ExtractClaimsFromRequest(r)
 		if err != nil {
 			log.Println(err)
 			SendUnauthorized(w)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "UserID", claims.UserID)
+		ctx := context.WithValue(r.Context(), contextKeyUserID, claims.UserID)
+		ctx = context.WithValue(ctx, contextKeyAuthHeader, authHeader)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 
@@ -227,6 +248,11 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	r.Header.Set("X-Forwarded-Proto", getScheme(r.URL.Scheme))
 	r.Header.Set("Forwarded", fmt.Sprintf("for=%s;host=%s;proto=%s", r.RemoteAddr, r.Host, getScheme(r.URL.Scheme)))
 	r.Header.Set("X-Auth-UserID", GetUserIDFromContext(r))
+	r.Header.Del("Authorization")
+	authHeader := GetAuthHeaderFromContext(r)
+	if authHeader != "" {
+		r.Header.Set("Authorization", "Bearer "+authHeader)
+	}
 
 	target := GetConfig().ProxyTarget
 	r.URL.Host = target.Host
