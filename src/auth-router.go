@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pquerna/otp"
-
 	"github.com/pquerna/otp/totp"
 
 	"github.com/dgrijalva/jwt-go"
@@ -351,7 +349,7 @@ func (router *AuthRouter) Confirm(w http.ResponseWriter, r *http.Request) {
 
 func (router *AuthRouter) OTPInit(w http.ResponseWriter, r *http.Request) {
 	user := GetUserRepository().GetOne(GetUserIDFromContext(r))
-	if user.OTPEnabled {
+	if user.OTPEnabled && user.OTPSecret != "" {
 		SendBadRequest(w)
 		return
 	}
@@ -359,10 +357,6 @@ func (router *AuthRouter) OTPInit(w http.ResponseWriter, r *http.Request) {
 	options := totp.GenerateOpts{
 		Issuer:      GetConfig().TOTPIssuer,
 		AccountName: user.Email,
-		Period:      30,
-		SecretSize:  20,
-		Digits:      otp.DigitsSix,
-		Algorithm:   otp.AlgorithmSHA512,
 	}
 	key, err := totp.Generate(options)
 	if err != nil {
@@ -380,7 +374,7 @@ func (router *AuthRouter) OTPInit(w http.ResponseWriter, r *http.Request) {
 	user.OTPEnabled = false
 	GetUserRepository().Update(user)
 
-	img, _ := key.Image(128, 128)
+	img, _ := key.Image(256, 256)
 	buf := bytes.NewBuffer([]byte{})
 	png.Encode(buf, img)
 	res := OTPInitResponse{
