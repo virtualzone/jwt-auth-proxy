@@ -13,6 +13,7 @@ import LoginForm from './pages/LoginForm'
 import ConfirmPage from './pages/ConfirmPage'
 import DashboardPage from './pages/DashboardPage';
 import Ajax from './Ajax';
+import TotpEnableForm from './pages/TotpEnableForm';
 
 function RouteWithSubRoutes(route) {
   return (
@@ -47,6 +48,7 @@ const NavHeader = props => {
         {window.sessionStorage.getItem("accessToken") == null ? <Nav.Link href="/signup.html">Sign Up</Nav.Link> : null}
         {window.sessionStorage.getItem("accessToken") == null ? <Nav.Link href="/login.html">Log In</Nav.Link> : null}
         {window.sessionStorage.getItem("accessToken") != null ? <Nav.Link href="/dashboard.html">Dashboard</Nav.Link> : null}
+        {window.sessionStorage.getItem("accessToken") != null ? <Nav.Link href="/totp.html">Security</Nav.Link> : null}
         {window.sessionStorage.getItem("accessToken") != null ? <Nav.Link onClick={handleLogout}>Log Out</Nav.Link> : null}
       </Nav>
     </Navbar>
@@ -74,6 +76,10 @@ const routes = [
   {
     path: "/dashboard.html",
     component: DashboardPage
+  },
+  {
+    path: "/totp.html",
+    component: TotpEnableForm
   }
 ];
 

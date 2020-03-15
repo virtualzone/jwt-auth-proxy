@@ -22,6 +22,8 @@ services:
             BACKEND_CERT_DIR: '/app/certs/'
             BACKEND_CERT_HOSTNAMES: 'proxy'
             SMTP_SERVER: 'smtp:1025'
+            TOTP_ENABLE: '1'
+            TOTP_ENCRYPT_KEY: 'w66iO0l3Kru7Qgpx'
         depends_on:
             - mongo
     mongo:

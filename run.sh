@@ -9,5 +9,7 @@ TEMPLATE_NEW_PASSWORD=../res/newpassword.tpl \
 PROXY_TARGET=http://localhost:8090 \
 CORS_ENABLE=1 \
 BACKEND_GENERATE_CERT=1 \
+TOTP_ENABLE=1 \
+TOTP_ENCRYPT_KEY=w66iO0l3Kru7Qgpx \
 PROXY_WHITELIST=/foo/bar \
 go run `ls *.go | grep -v _test.go`
