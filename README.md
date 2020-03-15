@@ -7,17 +7,18 @@ JWT Auth Proxy sits between your frontend and your application's backend, handle
 
 To your application's backend, the JWT Auth Proxy provides an mTLS-secured REST API for modifying user objects and storing custom data per user.
 
-JWT Auth Proxy uses short-lived JWT access tokens (HMAC-signing with SHA-512) and long-lived UUIDv4 refresh tokens for securely retrieving new access tokens before the old one expires.
+JWT Auth Proxy uses short-lived JWT access tokens (HMAC-signing with SHA-512) and long-lived UUIDv4 refresh tokens for securely retrieving new access tokens before the old one expires. It supports Two-Factor Authentication (2FA) via Time-based One-Time passwords (TOTP).
 
 ## Features
 ### User-facing
 * Easy-to-use REST API for
   * Signup with double-opt-in
-  * Login
+  * Login (with TOTP optionally)
   * Logout
   * Password reset (forgot password)
   * Email address change with double-opt-in
   * JWT access token renewal using long-lived refresh tokens
+  * Activate and disable Two-Factor Authentication (2FA, TOTP)
 * Proxy authenticated requests to your application's backend
 * Whitelist backend URLs not requiring authentication (or blacklist)
 
