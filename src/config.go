@@ -13,36 +13,39 @@ import (
 )
 
 type Config struct {
-	JwtSigningKey         string
-	PublicListenAddr      string
-	PublicAPIPath         string
-	BackendListenAddr     string
-	BackendCertDir        string
-	BackendCertHostnames  []string
-	BackendCertIPs        []net.IP
-	BackendGenerateCert   bool
-	TemplateSignup        string
-	TemplateChangeEmail   string
-	TemplateResetPassword string
-	TemplateNewPassword   string
-	MongoDbURL            string
-	MongoDbName           string
-	EnableCors            bool
-	CorsOrigin            string
-	CorsHeaders           string
-	SMTPServer            string
-	SMTPSenderAddr        string
-	AllowSignup           bool
-	AllowChangePassword   bool
-	AllowChangeEmail      bool
-	AllowForgotPassword   bool
-	AllowDeleteAccount    bool
-	ProxyTarget           *url.URL
-	ProxyWhitelist        []string
-	ProxyBlacklist        []string
-	AccessTokenLifetime   time.Duration
-	RefreshTokenLifetime  time.Duration
-	PendingActionLifetime time.Duration
+	JwtSigningKey           string
+	PublicListenAddr        string
+	PublicAPIPath           string
+	BackendListenAddr       string
+	BackendCertDir          string
+	BackendCertHostnames    []string
+	BackendCertIPs          []net.IP
+	BackendGenerateCert     bool
+	TemplateSignup          string
+	TemplateChangeEmail     string
+	TemplateResetPassword   string
+	TemplateNewPassword     string
+	MongoDbURL              string
+	MongoDbName             string
+	EnableCors              bool
+	CorsOrigin              string
+	CorsHeaders             string
+	SMTPServer              string
+	SMTPSenderAddr          string
+	AllowSignup             bool
+	AllowChangePassword     bool
+	AllowChangeEmail        bool
+	AllowForgotPassword     bool
+	AllowDeleteAccount      bool
+	EnableTOTP              bool
+	TOTPIssuer              string
+	TOTPSecretEncryptionKey string
+	ProxyTarget             *url.URL
+	ProxyWhitelist          []string
+	ProxyBlacklist          []string
+	AccessTokenLifetime     time.Duration
+	RefreshTokenLifetime    time.Duration
+	PendingActionLifetime   time.Duration
 }
 
 var _configInstance *Config
@@ -104,6 +107,12 @@ func (c *Config) ReadConfig() {
 	c.AllowChangeEmail = (c._GetEnv("ALLOW_CHANGE_EMAIL", "1") == "1")
 	c.AllowForgotPassword = (c._GetEnv("ALLOW_FORGOT_PASSWORD", "1") == "1")
 	c.AllowDeleteAccount = (c._GetEnv("ALLOW_DELETE_ACCOUNT", "1") == "1")
+	c.EnableTOTP = (c._GetEnv("TOTP_ENABLE", "0") == "1")
+	c.TOTPIssuer = c._GetEnv("TOTP_ISSUER", "JWT Auth Proxy")
+	c.TOTPSecretEncryptionKey = c._GetEnv("TOTP_ENCRYPT_KEY", "")
+	if c.EnableTOTP && len(c.TOTPSecretEncryptionKey) < 16 {
+		log.Fatal("TOTP_ENCRYPT_KEY with minimum length of 16 bytes required")
+	}
 	if proxyTaget, err := url.Parse(c._GetEnv("PROXY_TARGET", "http://127.0.0.1:80")); err != nil {
 		log.Fatal(err)
 	} else {

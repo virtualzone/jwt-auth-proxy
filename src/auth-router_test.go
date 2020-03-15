@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pquerna/otp/totp"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -568,5 +570,66 @@ func TestAuthBlacklistRoutes(t *testing.T) {
 		req := newHTTPRequest("POST", route, "", bytes.NewBufferString(payload))
 		res := executePublicTestRequest(req)
 		checkTestResponseCode(t, http.StatusUnauthorized, res.Code)
+	}
+}
+
+func TestActivateTOTP(t *testing.T) {
+	clearTestDB()
+	loginResponse := createLoginTestUser()
+
+	// Init OTP Enabling
+	req := newHTTPRequest("POST", "/auth/otp/init", loginResponse.AccessToken, nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusOK, res.Code)
+	var otpInitResponse OTPInitResponse
+	json.Unmarshal(res.Body.Bytes(), &otpInitResponse)
+	checkStringNotEmpty(t, otpInitResponse.Secret)
+	checkStringNotEmpty(t, otpInitResponse.Image)
+
+	// Confirm OTP Enabling
+	passcode, _ := totp.GenerateCode(otpInitResponse.Secret, time.Now())
+	payload := "{\"passcode\": \"" + passcode + "\"}"
+	req = newHTTPRequest("POST", "/auth/otp/confirm", loginResponse.AccessToken, bytes.NewBufferString(payload))
+	res = executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNoContent, res.Code)
+
+	// Test login with OTP enabled, but no OTP provided
+	loginResponse = loginUser("foo@bar.com", "12345678")
+	if !loginResponse.RequireOTP {
+		t.Fatal("Expected login to require OTP")
+	}
+	if loginResponse.AccessToken != "" || loginResponse.RefreshToken != "" {
+		t.Fatal("Expected access and refresh tokens to be empty without valid OTP")
+	}
+
+	// Test login with OTP enabled and OTP provided
+	passcode, _ = totp.GenerateCode(otpInitResponse.Secret, time.Now().UTC())
+	loginResponse = loginUserOTP("foo@bar.com", "12345678", passcode)
+	if loginResponse.RequireOTP {
+		t.Fatal("Expected login to be successful with provided OTP")
+	}
+	if loginResponse.AccessToken == "" || loginResponse.RefreshToken == "" {
+		t.Fatal("Expected access and refresh tokens to be non-empty with valid OTP")
+	}
+}
+
+func TestDisableTOTP(t *testing.T) {
+	clearTestDB()
+	_, secret := createOTPTestUser(true)
+	passcode, _ := totp.GenerateCode(secret, time.Now().UTC())
+	loginResponse := loginUserOTP("foo@bar.com", "12345678", passcode)
+
+	// Disable OTP
+	req := newHTTPRequest("POST", "/auth/otp/disable", loginResponse.AccessToken, nil)
+	res := executePublicTestRequest(req)
+	checkTestResponseCode(t, http.StatusNoContent, res.Code)
+
+	// Try login without OTP
+	loginResponse = loginUser("foo@bar.com", "12345678")
+	if loginResponse.RequireOTP {
+		t.Fatal("Expected login to be successful without OTP")
+	}
+	if loginResponse.AccessToken == "" || loginResponse.RefreshToken == "" {
+		t.Fatal("Expected access and refresh tokens to be non-empty without OTP")
 	}
 }

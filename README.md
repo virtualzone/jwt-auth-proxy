@@ -84,25 +84,32 @@ When your application's backend receives an HTTP request proxied through the JWT
   * 409: Conflict (user already exists)
 
 ### Log in
-* Use case: Log in activated and enabled user, retrieve Access and Refresh Tokens.
+* Use case: Log in an activated and enabled user, retrieve Access and Refresh Tokens.
 * URL: /auth/login
 * Method: POST
 * JSON Payload: 
   ```
   {
       "email": "<User's email address = username>",
-      "password": "<User's chosen password (min length = 8, max  length = 32)>"
+      "password": "<User's chosen password (min length = 8, max  length = 32)>",
+      "otp": "<Six digit TOTP>"
   }
   ```
 * HTTP Response Status Codes:
-  * 200: OK (user successfully logged in, result in response body payload)
+  * 200: OK (user successfully logged in or additional TOTP required, result in response body payload)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
-* HTTP Response Body:
+* HTTP Response Body for successful login:
   ```
   {
       "accessToken": "<short-lived JWT Access Token>",
       "refreshToken": "<long-lived UUIDv4 Refresh Token>",
+  }
+  ```
+* HTTP Response Body if TOTP is required:
+  ```
+  {
+      "otpRequired": true
   }
   ```
 
@@ -226,6 +233,45 @@ When your application's backend receives an HTTP request proxied through the JWT
   * 204: No content (successful)
   * 400: Bad request (invalid JSON payload)
   * 401: Unauthorized (authorization failed due to various reasons)
+
+### TOTP Initialization
+* Use case: User wants activate Time-bases One-Time passwords (TOTP) for his account.
+* URL: /auth/otp/init
+* Method: POST
+* Request Header: ```Authorization: Bearer <Access Token>```
+* HTTP Response Status Codes:
+  * 200: OK (successful, result in response body payload)
+  * 400: Bad request (i.e. TOTP already activated)
+* HTTP Response Body:
+  ```
+  {
+      "secret": "<TOTP secret>",
+      "image": "<Base64 encoded PNG image of QR code>",
+  }
+  ```
+
+### TOTP Confirmation
+* Use case: User wants to confirm TOTP activation after scanning the previously generated QR Code with his authenticator app.
+* URL: /auth/otp/confirm
+* Method: POST
+* Request Header: ```Authorization: Bearer <Access Token>```
+* JSON Payload: 
+  ```
+  {
+      "passcode": "<Six digit TOTP>"
+  }
+  ```
+* HTTP Response Status Codes:
+  * 204: No content (successful)
+  * 400: Bad request (i.e. invalid TOTP)
+
+### TOTP Deactivation
+* Use case: User wants disable TOTP.
+* URL: /auth/otp/disable
+* Method: POST
+* Request Header: ```Authorization: Bearer <Access Token>```
+* HTTP Response Status Codes:
+  * 204: No content (successful)
 
 ## Application-/Backend-facing REST API
 ### Create user
@@ -399,6 +445,9 @@ ALLOW_CHANGE_PASSWORD | 1 | Whether to allow (= 1) change password requests at t
 ALLOW_CHANGE_EMAIL | 1 | Whether to allow (= 1) change email address requests at the user-facing HTTP server.
 ALLOW_FORGOT_PASSWORD | 1 | Whether to allow (= 1) password reset requests at the user-facing HTTP server.
 ALLOW_DELETE_ACCOUNT | 1 | Whether to allow (= 1) "delete my account" requests at the user-facing HTTP server.
+TOTP_ENABLE | 0 | Whether to enable (= 1) support for Time-based One-Time Passwords (TOTP) as a second authentication factor (2FA).
+TOTP_ISSUER | JWT Auth Proxy | The TOTP Issuer.
+TOTP_ENCRYPT_KEY | '' | The passphrase encrypt the TOTP Secrets in the database (minimum length: 16 bytes). Required if TOTP_ENABLE=1.
 PROXY_TARGET | http://127.0.0.1:80 | The target server hosting your application backend.
 PROXY_WHITELIST | '' | Whitelisted URL prefixes at the target server not requiring a valid authentication. Separate prefixes by colons (':'). Don't use with PROXY_BLACKLIST.
 PROXY_BLACKLIST | '' | Blacklisted URL prefixes at the target server requiring a valid authentication. Separate prefixes by colons (':'). Don't use with PROXY_WHITELIST.

@@ -2,9 +2,16 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
+	"image/png"
 	"log"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/pquerna/otp"
+
+	"github.com/pquerna/otp/totp"
 
 	"github.com/dgrijalva/jwt-go"
 
@@ -34,6 +41,11 @@ func (router *AuthRouter) setupRoutes(s *mux.Router) {
 	}
 	if GetConfig().AllowDeleteAccount {
 		s.HandleFunc("/delete", router.DeleteAccount).Methods("POST")
+	}
+	if GetConfig().EnableTOTP {
+		s.HandleFunc("/otp/init", router.OTPInit).Methods("POST")
+		s.HandleFunc("/otp/confirm", router.OTPConfirm).Methods("POST")
+		s.HandleFunc("/otp/disable", router.OTPDisable).Methods("POST")
 	}
 	s.HandleFunc("/confirm/{id}", router.Confirm).Methods("POST")
 	s.PathPrefix("/").Methods("OPTIONS").HandlerFunc(CorsHandler)
@@ -73,6 +85,18 @@ func (router *AuthRouter) Login(w http.ResponseWriter, r *http.Request) {
 		log.Println("Invalid login attempt: invalid password for UserID", user.ID.Hex())
 		SendUnauthorized(w)
 		return
+	}
+	if user.OTPEnabled && GetConfig().EnableTOTP {
+		if len(strings.TrimSpace(data.OTP)) != 6 {
+			log.Println("Login attempt successful, but missing OTP for UserID", user.ID.Hex())
+			SendJSON(w, &LoginResponse{RequireOTP: true})
+			return
+		}
+		if !router._IsValidOTP(user, data.OTP) {
+			log.Println("Login attempt successful, but OTP invalid for UserID", user.ID.Hex())
+			SendJSON(w, &LoginResponse{RequireOTP: true})
+			return
+		}
 	}
 	log.Println("Successful login for UserID", user.ID.Hex())
 	refreshToken := router._CreateRefreshToken(user)
@@ -325,6 +349,91 @@ func (router *AuthRouter) Confirm(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (router *AuthRouter) OTPInit(w http.ResponseWriter, r *http.Request) {
+	user := GetUserRepository().GetOne(GetUserIDFromContext(r))
+	if user.OTPEnabled {
+		SendBadRequest(w)
+		return
+	}
+
+	options := totp.GenerateOpts{
+		Issuer:      GetConfig().TOTPIssuer,
+		AccountName: user.Email,
+		Period:      30,
+		SecretSize:  20,
+		Digits:      otp.DigitsSix,
+		Algorithm:   otp.AlgorithmSHA512,
+	}
+	key, err := totp.Generate(options)
+	if err != nil {
+		SendInternalServerError(w)
+		return
+	}
+
+	secret, err := Encrypt(GetConfig().TOTPSecretEncryptionKey, key.Secret())
+	if err != nil {
+		log.Println("Could not encrypt TOTP secret:", err)
+		SendInternalServerError(w)
+		return
+	}
+	user.OTPSecret = secret
+	user.OTPEnabled = false
+	GetUserRepository().Update(user)
+
+	img, _ := key.Image(128, 128)
+	buf := bytes.NewBuffer([]byte{})
+	png.Encode(buf, img)
+	res := OTPInitResponse{
+		Secret: key.Secret(),
+		Image:  base64.StdEncoding.EncodeToString(buf.Bytes()),
+	}
+	SendJSON(w, res)
+}
+
+func (router *AuthRouter) OTPDisable(w http.ResponseWriter, r *http.Request) {
+	user := GetUserRepository().GetOne(GetUserIDFromContext(r))
+	user.OTPSecret = ""
+	user.OTPEnabled = false
+	GetUserRepository().Update(user)
+	SendUpdated(w)
+}
+
+func (router *AuthRouter) OTPConfirm(w http.ResponseWriter, r *http.Request) {
+	var data OTPValidateRequest
+	if UnmarshalValidateBody(r, &data) != nil {
+		SendBadRequest(w)
+		return
+	}
+	user := GetUserRepository().GetOne(GetUserIDFromContext(r))
+	if user.OTPEnabled {
+		log.Println("Invalid OTP confirm attempt: user has not enabled OTP")
+		SendBadRequest(w)
+		return
+	}
+	if strings.TrimSpace(user.OTPSecret) == "" {
+		log.Println("Invalid OTP confirm attempt: empty secret")
+		SendBadRequest(w)
+		return
+	}
+	if !router._IsValidOTP(user, data.Passcode) {
+		log.Println("Invalid OTP confirm attempt: invalid passcode")
+		SendBadRequest(w)
+		return
+	}
+	user.OTPEnabled = true
+	GetUserRepository().Update(user)
+	SendUpdated(w)
+}
+
+func (router *AuthRouter) _IsValidOTP(user *User, passcode string) bool {
+	secret, err := Decrypt(GetConfig().TOTPSecretEncryptionKey, user.OTPSecret)
+	if err != nil {
+		log.Println("Could not decrypt TOTP secret:", err)
+		return false
+	}
+	return totp.Validate(passcode, secret)
+}
+
 func (router *AuthRouter) _ConfirmAccountActivation(w http.ResponseWriter, pa *PendingAction, user *User) {
 	user.Confirmed = true
 	GetUserRepository().Update(user)
@@ -416,6 +525,7 @@ func (router *AuthRouter) _SendNewPassword(user *User, password string) {
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8,max=32"`
+	OTP      string `json:"otp"`
 }
 
 type ForgotPasswordRequest struct {
@@ -436,6 +546,7 @@ type Claims struct {
 
 // LoginResponse holds the response payload for login responses
 type LoginResponse struct {
+	RequireOTP   bool   `json:"otpRequired"`
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
 }
@@ -455,4 +566,13 @@ type SignupRequest struct {
 // DeleteAccountRequest holds the POST payload for account delete requests
 type DeleteAccountRequest struct {
 	Password string `json:"password" validate:"required,min=8,max=32"`
+}
+
+type OTPInitResponse struct {
+	Secret string `json:"secret"`
+	Image  string `json:"image"`
+}
+
+type OTPValidateRequest struct {
+	Passcode string `json:"passcode" validate:"required,min=6,max=6"`
 }

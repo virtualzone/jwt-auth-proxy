@@ -20,6 +20,8 @@ type User struct {
 	HashedPassword string             `json:"password,omitempty" bson:"password"`
 	Confirmed      bool               `json:"confirmed" bson:"confirmed"`
 	Enabled        bool               `json:"enabled" bson:"enabled"`
+	OTPEnabled     bool               `json:"otpEnabled" bson:"otpEnabled"`
+	OTPSecret      string             `bson:"otpSecret"`
 	CreateDate     time.Time          `json:"createDate" bson:"createDate"`
 	Data           interface{}        `json:"data" bson:"data,omitempty"`
 }
