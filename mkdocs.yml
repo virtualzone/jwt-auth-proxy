@@ -1,0 +1,10 @@
+site_name: JWT Auth Proxy
+theme: readthedocs
+nav:
+    - Home: index.md
+    - Setup: setup.md
+    - Configuration: config.md
+    - Application Integration: integration.md
+    - User-facing API: user-facing.md
+    - Backend-facing API: app-facing.md
+site_dir: docs_build

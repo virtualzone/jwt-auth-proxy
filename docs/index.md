@@ -1,4 +1,6 @@
-# JWT Auth Proxy
+# Welcome to JWT Auth Proxy
+
+## About JWT Auth Proxy
 This JWT Auth Proxy is a lightweight authentication proxy written in Go designed for use in Docker/Kubernetes environments.
 
 ![JWT Auth Proxy](https://raw.githubusercontent.com/virtualzone/jwt-auth-proxy/master/diagram.png)
@@ -32,21 +34,3 @@ JWT Auth Proxy uses short-lived JWT access tokens (HMAC-signing with SHA-512) an
   * Set password
   * Set email address
   * Store and retrieve custom per-user data (JSON)
-
-## Example
-There is a little sample application in the [example folder](https://github.com/virtualzone/jwt-auth-proxy/tree/master/example). It consists of the JWT Auth Proxy, a React-based web frontend and a Go-based application backend. It also contains a MongoDB instance and an instance of the Mailhog fake SMTP server.
-
-To start the example:
-
-```
-git clone https://github.com/virtualzone/jwt-auth-proxy.git
-cd jwt-auth-proxy/example
-docker-compose up -d
-```
-
-Access the frontend at: http://localhost:8080
-
-To access the Mailhog frontend and check for your signup mail: http://localhost:8025
-
-## Documentation 
-https://jwt-auth-proxy.readthedocs.io
