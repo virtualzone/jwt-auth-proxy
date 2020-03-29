@@ -1,4 +1,4 @@
-FROM amd64/golang:1.13-alpine AS builder
+FROM amd64/golang:1.14-alpine AS builder
 RUN apk --update add --no-cache git
 RUN export GOBIN=$HOME/work/bin
 WORKDIR /go/src/app
