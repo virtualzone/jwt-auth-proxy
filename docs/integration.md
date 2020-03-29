@@ -15,4 +15,7 @@ When your application's backend receives an HTTP request proxied through the JWT
 * ```X-Forwarded-Proto``` (XFP): The protocol (HTTP or HTTPS) the client used to connect to the proxy.
 
 ## Calling the Backend API
-To call the backend-facing API, invoke REST-based HTTP requests from your backend to JWT Auth Proxy's backend-facing REST service. This service is usually listening on port 8443 and requires a valid mTLS certificate.
+To call the backend-facing API, invoke REST-based HTTP requests from your backend to JWT Auth Proxy's backend-facing REST service. This service is usually listening on port 8443 and requires a valid mTLS certificate. Please refer to the [Setup page](setup.md) for more information.
+
+## Example
+Please refer to the [example at GitHub](https://github.com/virtualzone/jwt-auth-proxy/tree/master/example) to see how JWT Auth Proxy integrates with your frontend and backend.
